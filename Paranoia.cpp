@@ -24,6 +24,19 @@ int Paranoia::defaultFlags()
 	return PARANOIA_MODE_FULL ^ PARANOIA_MODE_NEVERSKIP;
 }
 
+std::map<std::string, std::string> Paranoia::devices()
+{
+	std::map<std::string, std::string> ret;
+	char** devs = cdio_get_devices(DRIVER_UNKNOWN);
+	for (char** dev = devs; dev && *dev; ++dev)
+	{
+		cdrom_drive_s* cdrom = cdio_cddap_identify(*dev, 0, 0);
+		ret[*dev] = cdrom->drive_model;
+	}
+	cdio_free_device_list(devs);
+	return ret;
+}
+
 bool Paranoia::open(string const& _device)
 {
 	close();

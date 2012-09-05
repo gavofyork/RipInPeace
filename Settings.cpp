@@ -1,17 +1,21 @@
 #include <QFileDialog>
-#include "Settings.h"
+#include "Paranoia.h"
 #include "RIP.h"
 #include "ui_Settings.h"
+#include "Settings.h"
+using namespace std;
 
 Settings::Settings(RIP* _parent):
 	QDialog(nullptr),
 	ui(new Ui::Settings),
-	m_rip(_parent)
+	m_rip(nullptr)
 {
 	ui->setupUi(this);
 
-	// TODO: populate devices.
-	//ui->device
+	// populate devices before m_rip is set.
+	for (auto d: Paranoia::devices())
+		ui->device->addItem(QString::fromUtf8(d.second.c_str()), QString::fromUtf8(d.first.c_str()));
+	m_rip = _parent;
 
 	populate();
 	connect(ui->directory, SIGNAL(textEdited(QString)), m_rip, SLOT(setDirectory(QString)));
@@ -34,25 +38,30 @@ void Settings::on_openDirectory_clicked()
 		ui->directory->setText(s);
 }
 
-void Settings::on_device_changed()
+void Settings::on_device_currentIndexChanged(int _i)
 {
-	// m_rip->setDevice(/*new device's filename*/);
+	if (m_rip)
+		m_rip->setDevice(ui->device->itemData(_i).toString());
 }
 
 void Settings::on_paranoia_clicked()
 {
+	if (m_rip){}
 	// m_rip->setParanoia(/*compiled flags*/);
 }
 
 void Settings::on_filename_textChanged()
 {
-	m_rip->setFilename(ui->filename->toPlainText());
+	if (m_rip)
+		m_rip->setFilename(ui->filename->toPlainText());
 }
 
 void Settings::populate()
 {
 	ui->directory->setText(m_rip->directory());
 	ui->filename->setPlainText(m_rip->filename());
-//	ui->device-> /*set device from*/ m_rip->device();
+	QString d = m_rip->device();
+	int i = ui->device->findData(d);
+	ui->device->setCurrentIndex(i);
 //	ui->paranoia-> /*set each flag from*/ m_rip->paranoia();
 }

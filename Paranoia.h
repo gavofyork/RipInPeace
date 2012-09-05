@@ -1,3 +1,6 @@
+#pragma once
+
+#include <map>
 #include <string>
 #include <functional>
 #include <cstdint>
@@ -20,6 +23,7 @@ public:
 	void close();
 
 	static int defaultFlags();
+	static std::map<std::string, std::string> devices();
 
 private:
 	cdrom_drive_s* m_cdrom;

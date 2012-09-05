@@ -20,7 +20,7 @@ public slots:
 	void on_close_clicked();
 	void on_openDirectory_clicked();
 	void populate();
-	void on_device_changed();
+	void on_device_currentIndexChanged(int _i);
 	void on_paranoia_clicked();
 	void on_filename_textChanged();
 
