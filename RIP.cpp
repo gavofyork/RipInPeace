@@ -135,7 +135,7 @@ void RIP::writeSettings()
 
 void RIP::updatePreset(int _i)
 {
-	m_di = (int)m_dis.size() > _i ? m_dis[_i] : DiscInfo();
+	m_di = (int)m_dis.size() > _i && _i >= 0 ? m_dis[_i] : DiscInfo();
 	m_info.title->setText(fSS(m_di.title));
 	m_info.artist->setText(fSS(m_di.artist));
 	m_info.setIndex->setValue(m_di.setIndex + 1);
@@ -259,7 +259,7 @@ void RIP::moveAll()
 			s.globalObject().setProperty("artist", scrubbed(fSS(m_di.tracks[i].artist)), QScriptValue::ReadOnly|QScriptValue::Undeletable);
 			auto filename = s.evaluate(fSS(m_filename)).toString();
 			QDir().mkpath((fSS(m_path) + "/" + filename).section('/', 0, -2));
-			QFile::rename(fSS(m_path+"/"+m_temp+"/%1").arg(i), fSS(m_path) + "/" + filename);
+			QFile::rename(fSS(m_path + "/" + m_temp) + QString("/%1").arg(i), fSS(m_path) + "/" + filename);
 		}
 	QDir().rmdir(fSS(m_path + "/" + m_temp));
 }
@@ -343,7 +343,6 @@ void RIP::timerEvent(QTimerEvent*)
 	int percentDone = total ? int(done * 100.0 / total) : 0;
 	if (total && m_lastPercentDone != percentDone)
 	{
-		qDebug() << percentDone;
 		if (percentDone / 5 != m_lastPercentDone / 5)
 		{
 			QPixmap px(22, 22);
@@ -372,6 +371,7 @@ inline string toString(mb4::CNameCreditList* _a)
 
 void RIP::getDiscInfo()
 {
+	m_dis.clear();
 	m_di = DiscInfo(m_p.tracks());
 	if (m_discId)
 	{
@@ -482,11 +482,9 @@ void RIP::rip()
 	for (unsigned i = 0; i < t && !m_aborting; ++i)
 		if (m_progress[i].second)
 		{
-			qDebug() << "Starting" << (i+1);
 			string fn = ((ostringstream&)(ostringstream()<<m_path<<"/"<<m_temp<<"/"<<i)).str();
 			if (QFile::exists(fSS(fn)) && flacLength(fn) == m_progress[i].second)
 			{
-				qDebug() << "Skipping" << (i+1) << "- already done.";
 				m_progress[i].first = m_progress[i].second;
 				continue;
 			}
@@ -522,7 +520,6 @@ void RIP::rip()
 						usleep(100000);
 					}
 				}
-				qDebug() << "Finished" << (i+1);
 				f.finish();
 				delete incoming;
 				delete m;
@@ -541,18 +538,15 @@ void RIP::rip()
 			};
 			encoders.push_back(new std::thread(encoder));
 			m_p.rip(i, ripper);
-			qDebug() << "Ripped" << (i+1);
 			m->lock();
 			incoming->push(nullptr);
 			m->unlock();
 		}
-	qDebug() << "Joining...";
 	for (auto e: encoders)
 	{
 		e->join();
 		delete e;
 	}
-	qDebug() << "Done.";
 	encoders.clear();
 }
 
