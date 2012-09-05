@@ -19,6 +19,15 @@ Paranoia::~Paranoia()
 	close();
 }
 
+std::map<int, std::string> Paranoia::flags()
+{
+	return {
+			{ PARANOIA_MODE_VERIFY, "Verify data integrety in overlap area" },
+			{ PARANOIA_MODE_OVERLAP, "Perform overlapped reads" },
+			{ PARANOIA_MODE_NEVERSKIP, "Do not skip failed reads (retry)" }
+	};
+}
+
 int Paranoia::defaultFlags()
 {
 	return PARANOIA_MODE_FULL ^ PARANOIA_MODE_NEVERSKIP;

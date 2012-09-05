@@ -24,6 +24,7 @@ public:
 
 	static int defaultFlags();
 	static std::map<std::string, std::string> devices();
+	static std::map<int, std::string> flags();
 
 private:
 	cdrom_drive_s* m_cdrom;

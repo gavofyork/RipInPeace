@@ -1,4 +1,5 @@
 #include <QFileDialog>
+#include <QStringList>
 #include "Paranoia.h"
 #include "RIP.h"
 #include "ui_Settings.h"
@@ -15,6 +16,13 @@ Settings::Settings(RIP* _parent):
 	// populate devices before m_rip is set.
 	for (auto d: Paranoia::devices())
 		ui->device->addItem(QString::fromUtf8(d.second.c_str()), QString::fromUtf8(d.first.c_str()));
+	for (auto f: Paranoia::flags())
+	{
+		auto it = new QTreeWidgetItem(ui->paranoia, QStringList(QString::fromUtf8(f.second.c_str())));
+		it->setData(0, Qt::UserRole, f.first);
+		it->setCheckState(0, Qt::Unchecked);
+	}
+
 	m_rip = _parent;
 
 	populate();
@@ -44,10 +52,16 @@ void Settings::on_device_currentIndexChanged(int _i)
 		m_rip->setDevice(ui->device->itemData(_i).toString());
 }
 
-void Settings::on_paranoia_clicked()
+void Settings::on_paranoia_itemChanged()
 {
-	if (m_rip){}
-	// m_rip->setParanoia(/*compiled flags*/);
+	if (m_rip)
+	{
+		int f = 0;
+		for (int i = 0; i < ui->paranoia->topLevelItemCount(); ++i)
+			if (ui->paranoia->topLevelItem(i)->checkState(0) == Qt::Checked)
+				f |= ui->paranoia->topLevelItem(i)->data(0, Qt::UserRole).toInt();
+		m_rip->setParanoia(f);
+	}
 }
 
 void Settings::on_filename_textChanged()
@@ -60,8 +74,11 @@ void Settings::populate()
 {
 	ui->directory->setText(m_rip->directory());
 	ui->filename->setPlainText(m_rip->filename());
-	QString d = m_rip->device();
-	int i = ui->device->findData(d);
-	ui->device->setCurrentIndex(i);
-//	ui->paranoia-> /*set each flag from*/ m_rip->paranoia();
+	ui->device->setCurrentIndex(ui->device->findData(m_rip->device()));
+	int fs = m_rip->paranoia();
+	for (int i = 0; i < ui->paranoia->topLevelItemCount(); ++i)
+	{
+		int f = ui->paranoia->topLevelItem(i)->data(0, Qt::UserRole).toInt();
+		ui->paranoia->topLevelItem(i)->setCheckState(0, (f & fs) ? Qt::Checked : Qt::Unchecked);
+	}
 }

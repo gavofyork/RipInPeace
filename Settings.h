@@ -7,6 +7,7 @@ class Settings;
 }
 
 class RIP;
+class QTreeWidgetItem;
 
 class Settings: public QDialog
 {
@@ -21,7 +22,7 @@ public slots:
 	void on_openDirectory_clicked();
 	void populate();
 	void on_device_currentIndexChanged(int _i);
-	void on_paranoia_clicked();
+	void on_paranoia_itemChanged();
 	void on_filename_textChanged();
 
 private:
