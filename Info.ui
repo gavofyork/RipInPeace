@@ -14,44 +14,7 @@
    <string>Form</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="1" column="0" colspan="3">
-    <widget class="QLineEdit" name="artist">
-     <property name="placeholderText">
-      <string>Artist</string>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="2">
-    <widget class="QSpinBox" name="year">
-     <property name="prefix">
-      <string>Year: </string>
-     </property>
-     <property name="minimum">
-      <number>1900</number>
-     </property>
-     <property name="maximum">
-      <number>2100</number>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="0" colspan="3">
-    <widget class="QLineEdit" name="title">
-     <property name="placeholderText">
-      <string>Title</string>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="1">
-    <widget class="QSpinBox" name="setTotal">
-     <property name="prefix">
-      <string>of </string>
-     </property>
-     <property name="minimum">
-      <number>1</number>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="0">
+   <item row="4" column="0">
     <widget class="QSpinBox" name="setIndex">
      <property name="suffix">
       <string/>
@@ -64,7 +27,44 @@
      </property>
     </widget>
    </item>
-   <item row="3" column="0" colspan="3">
+   <item row="2" column="0" colspan="3">
+    <widget class="QLineEdit" name="artist">
+     <property name="placeholderText">
+      <string>Artist</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="2">
+    <widget class="QSpinBox" name="year">
+     <property name="prefix">
+      <string>Year: </string>
+     </property>
+     <property name="minimum">
+      <number>1900</number>
+     </property>
+     <property name="maximum">
+      <number>2100</number>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0" colspan="3">
+    <widget class="QLineEdit" name="title">
+     <property name="placeholderText">
+      <string>Title</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QSpinBox" name="setTotal">
+     <property name="prefix">
+      <string>of </string>
+     </property>
+     <property name="minimum">
+      <number>1</number>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="0" colspan="3">
     <widget class="QTableWidget" name="tracks">
      <property name="gridStyle">
       <enum>Qt::DotLine</enum>
@@ -98,6 +98,9 @@
       </property>
      </column>
     </widget>
+   </item>
+   <item row="0" column="0" colspan="3">
+    <widget class="QComboBox" name="presets"/>
    </item>
   </layout>
  </widget>

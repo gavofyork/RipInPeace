@@ -64,9 +64,7 @@ inline string tSS(QString const& _s)
 	return string(_s.toUtf8().data());
 }
 
-/* TODO: combo box for m_dis
- * TODO: better status indicator
- * TODO: config dialog
+/* TODO: better status indicator
  * TODO: cover art
  * TODO: repot freedb & mb4 into DiscInfo
  */
@@ -92,6 +90,7 @@ RIP::RIP(): m_path("/media/Data/Music"), m_filename("discartist+' - '+disctitle+
 	m_settings = new Settings(this);
 	m_popup = new QWidget(0, Qt::FramelessWindowHint);
 	m_info.setupUi(m_popup);
+	connect(m_info.presets, SIGNAL(currentIndexChanged(int)), SLOT(updatePreset(int)));
 
 	connect(this, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), SLOT(onActivated(QSystemTrayIcon::ActivationReason)));
 	setContextMenu(new QMenu("Rip In Peace"));
@@ -132,6 +131,22 @@ void RIP::writeSettings()
 	s.setValue("directory", fSS(m_path));
 	s.setValue("device", fSS(m_device));
 	s.setValue("paranoia", m_paranoia);
+}
+
+void RIP::updatePreset(int _i)
+{
+	m_di = (int)m_dis.size() > _i ? m_dis[_i] : DiscInfo();
+	m_info.title->setText(fSS(m_di.title));
+	m_info.artist->setText(fSS(m_di.artist));
+	m_info.setIndex->setValue(m_di.setIndex + 1);
+	m_info.setTotal->setValue(m_di.setTotal);
+	m_info.year->setValue(m_di.year);
+	m_info.tracks->setRowCount(m_p.tracks());
+	for (unsigned i = 0; i < m_di.tracks.size(); ++i)
+	{
+		m_info.tracks->setItem(i, 0, new QTableWidgetItem(fSS(m_di.tracks[i].title)));
+		m_info.tracks->setItem(i, 1, new QTableWidgetItem(fSS(m_di.tracks[i].artist)));
+	}
 }
 
 void RIP::onAbout()
@@ -378,6 +393,7 @@ void RIP::getDiscInfo()
 					if (metadata.Release())
 					{
 						mb4::CRelease* fullRelease = metadata.Release();
+						cerr << (*fullRelease) << endl;
 						m_di.title = fullRelease->Title();
 						m_di.artist = toString(fullRelease->ArtistCredit()->NameCreditList());
 						m_di.setTotal = fullRelease->MediumList()->Count();
@@ -427,18 +443,14 @@ void RIP::getDiscInfo()
 			cddb_query_next(m_conn, m_disc);
 		}
 	}
-	m_di = m_dis.front();
-	m_info.title->setText(fSS(m_di.title));
-	m_info.artist->setText(fSS(m_di.artist));
-	m_info.setIndex->setValue(m_di.setIndex + 1);
-	m_info.setTotal->setValue(m_di.setTotal);
-	m_info.year->setValue(m_di.year);
-	m_info.tracks->setRowCount(m_p.tracks());
-	for (unsigned i = 0; i < m_di.tracks.size(); ++i)
-	{
-		m_info.tracks->setItem(i, 0, new QTableWidgetItem(fSS(m_di.tracks[i].title)));
-		m_info.tracks->setItem(i, 1, new QTableWidgetItem(fSS(m_di.tracks[i].artist)));
-	}
+	if (!m_dis.size())
+		m_dis.push_back(m_di);
+
+	m_info.presets->clear();
+	for (DiscInfo const& di: m_dis)
+		m_info.presets->addItem(fSS(di.artist + " - " + di.title));
+
+	updatePreset(0);
 }
 
 void RIP::takeDiscInfo()

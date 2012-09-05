@@ -1,7 +1,7 @@
 #pragma once
 
 #include <thread>
-#include <list>
+#include <vector>
 #include <QSystemTrayIcon>
 #include "DiscInfo.h"
 #include "Paranoia.h"
@@ -37,6 +37,8 @@ private slots:
 	void onAbortRip();
 	void onAbout();
 
+	void updatePreset(int);
+
 private:
 	void rip();
 	void getDiscInfo();
@@ -55,7 +57,7 @@ private:
 	Ui::Info m_info;
 
 	DiscInfo m_di;
-	std::list<DiscInfo> m_dis;
+	std::vector<DiscInfo> m_dis;
 
 	std::string m_path;
 	std::string m_filename;
