@@ -19,6 +19,8 @@ public:
 	void rip(unsigned _track, std::function<bool(unsigned, unsigned, int16_t const*)> const& _f, int _flags = -1);
 	void close();
 
+	static int defaultFlags();
+
 private:
 	cdrom_drive_s* m_cdrom;
 	cdrom_paranoia_s* m_paranoia;

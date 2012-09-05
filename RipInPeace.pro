@@ -18,15 +18,18 @@ DEFINES += HAVE_LIBCDIO
 
 SOURCES += main.cpp \
     RIP.cpp \
-    Paranoia.cpp
+    Paranoia.cpp \
+    Settings.cpp
 
 HEADERS  += \
     RIP.h \
     Paranoia.h \
-    DiscInfo.h
+    DiscInfo.h \
+    Settings.h
 
 FORMS += \
-    Info.ui
+    Info.ui \
+    Settings.ui
 
 RESOURCES += \
     RIP.qrc

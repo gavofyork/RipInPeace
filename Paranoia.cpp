@@ -19,6 +19,11 @@ Paranoia::~Paranoia()
 	close();
 }
 
+int Paranoia::defaultFlags()
+{
+	return PARANOIA_MODE_FULL ^ PARANOIA_MODE_NEVERSKIP;
+}
+
 bool Paranoia::open(string const& _device)
 {
 	close();
@@ -92,7 +97,7 @@ void Paranoia::rip(unsigned _track, function<bool(unsigned, unsigned, int16_t co
 		throw TroubleGettingStartingLSN();
 
 	// TODO: allow change
-	cdio_paranoia_modeset(m_paranoia, _flags == -1 ? PARANOIA_MODE_FULL ^ PARANOIA_MODE_NEVERSKIP : _flags);
+	cdio_paranoia_modeset(m_paranoia, _flags == -1 ? defaultFlags() : _flags);
 	cdio_paranoia_seek(m_paranoia, begin, SEEK_SET);
 	for (lsn_t cursor = begin; cursor <= end; ++cursor)
 	{

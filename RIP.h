@@ -8,6 +8,7 @@
 #include "ui_Info.h"
 
 class QTableWidget;
+class Settings;
 
 struct cddb_conn_s;
 struct cddb_disc_s;
@@ -19,6 +20,17 @@ class RIP: public QSystemTrayIcon
 public:
 	RIP();
 	~RIP();
+
+	QString directory() const { return QString::fromUtf8(m_path.c_str()); }
+	QString filename() const { return QString::fromUtf8(m_filename.c_str()); }
+	QString device() const { return QString::fromUtf8(m_device.c_str()); }
+	int paranoia() const { return m_paranoia; }
+
+public slots:
+	void setDirectory(QString _s) { m_path = _s.toUtf8().data(); }
+	void setFilename(QString _s) { m_filename = _s.toUtf8().data(); }
+	void setParanoia(int _s) { m_paranoia = _s; }
+	void setDevice(QString _s) { m_device = _s.toUtf8().data(); }
 
 private slots:
 	void onActivated(QSystemTrayIcon::ActivationReason);
@@ -33,9 +45,13 @@ private:
 	void tagAll();
 	void moveAll();
 
+	void readSettings();
+	void writeSettings();
+
 	virtual void timerEvent(QTimerEvent*);
 
 	QWidget* m_popup;
+	Settings* m_settings;
 	Ui::Info m_info;
 
 	DiscInfo m_di;
@@ -45,6 +61,7 @@ private:
 	std::string m_filename;
 
 	std::string m_device;
+	int m_paranoia;
 
 	void** m_discId;
 

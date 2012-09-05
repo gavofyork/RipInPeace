@@ -1,5 +1,5 @@
 #include "contrib/cd_access.c"
-#include "contrib/do_query.c"
+//#include "contrib/do_query.c"
 #include "contrib/do_read.c"
 
 #include <fcntl.h>
@@ -40,6 +40,8 @@
 #include <QProcess>
 #include <QScriptEngine>
 #include <QDebug>
+#include <QSettings>
+#include "Settings.h"
 #include "ui_Info.h"
 #include "RIP.h"
 using namespace std;
@@ -84,31 +86,57 @@ RIP::RIP(): m_path("/media/Data/Music"), m_filename("discartist+' - '+disctitle+
 		m_inactive = QIcon(px);
 	}
 	setIcon(m_inactive);
-	startTimer(1000);
+
+	readSettings();
+
+	m_settings = new Settings(this);
+	m_popup = new QWidget(0, Qt::FramelessWindowHint);
+	m_info.setupUi(m_popup);
+
 	connect(this, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), SLOT(onActivated(QSystemTrayIcon::ActivationReason)));
 	setContextMenu(new QMenu("Rip In Peace"));
 	contextMenu()->addAction("Abort Rip", this, SLOT(onAbortRip()));
 	contextMenu()->addSeparator();
+	contextMenu()->addAction("Settings", m_settings, SLOT(show()));
 	contextMenu()->addAction("About", this, SLOT(onAbout()));
 	contextMenu()->addAction("Quit", qApp, SLOT(quit()));
-	m_popup = new QWidget(0, Qt::FramelessWindowHint);
-	m_info.setupUi(m_popup);
 
 	m_conn = cddb_new();
 	m_disc = nullptr;
+
+	startTimer(1000);
 }
 
 RIP::~RIP()
 {
+	writeSettings();
 	if (m_disc)
 		cddb_disc_destroy(m_disc);
 	if (m_conn)
 		cddb_destroy(m_conn);
 }
 
+void RIP::readSettings()
+{
+	QSettings s("Gav", "RIP");
+	m_filename = tSS(s.value("filename", fSS(m_filename)).toString());
+	m_path = tSS(s.value("directory", fSS(m_path)).toString());
+	m_device = tSS(s.value("device", fSS(m_device)).toString());
+	m_paranoia = s.value("paranoia", m_paranoia).toInt();
+}
+
+void RIP::writeSettings()
+{
+	QSettings s("Gav", "RIP");
+	s.setValue("filename", fSS(m_filename));
+	s.setValue("directory", fSS(m_path));
+	s.setValue("device", fSS(m_device));
+	s.setValue("paranoia", m_paranoia);
+}
+
 void RIP::onAbout()
 {
-	QMessageBox::about(nullptr, "About Rip in Peace", "<b>Rip in Peace:</b><p>A Ripper that doesn't get in your way.<p>By Gav Wood, 2012.";
+	QMessageBox::about(nullptr, "About Rip in Peace", "<b>Rip in Peace:</b><p>A Ripper that doesn't get in your way.<p>By Gav Wood, 2012.");
 }
 
 void RIP::onAbortRip()
@@ -116,12 +144,15 @@ void RIP::onAbortRip()
 	m_aborting = true;
 }
 
-void RIP::onActivated(QSystemTrayIcon::ActivationReason)
+void RIP::onActivated(QSystemTrayIcon::ActivationReason _r)
 {
-	m_popup->setVisible(!m_popup->isVisible());
-	if (m_popup->isVisible())
-		m_popup->move(QCursor::pos());
-	m_poppedUp = true;
+	if (_r == QSystemTrayIcon::Trigger)
+	{
+		m_popup->setVisible(!m_popup->isVisible());
+		if (m_popup->isVisible())
+			m_popup->move(QCursor::pos());
+		m_poppedUp = true;
+	}
 }
 
 void RIP::tagAll()
@@ -188,8 +219,8 @@ void RIP::tagAll()
 QString scrubbed(QString _s)
 {
 	_s.replace('*', "");
-	_s.replace('?', "");
 	_s.replace(':', "");
+	_s.replace('?', "");
 	_s.replace('/', "");
 	_s.replace('\\', "");
 	return _s;
