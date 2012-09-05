@@ -4,15 +4,17 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui script
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-TARGET = RestInPeace
+TARGET = RipInPeace
 TEMPLATE = app
 
 QMAKE_CXXFLAGS += --std=c++0x
 LIBS += -lcdio_paranoia -lcdio_cdda -lcdio -lcddb -lFLAC++ -ldiscid -lmusicbrainz4
+
+DEFINES += HAVE_LIBCDIO
 
 SOURCES += main.cpp \
     RIP.cpp \
@@ -25,4 +27,7 @@ HEADERS  += \
 
 FORMS += \
     Info.ui
+
+RESOURCES += \
+    RIP.qrc
 

@@ -5,6 +5,11 @@
 #include "Paranoia.h"
 using namespace std;
 
+struct CannotFindCDROMDevice {};
+struct UnableToOpenDisc {};
+struct TroubleGettingStartingLSN {};
+struct ParanoiaSentNoData {};
+
 Paranoia::Paranoia(): m_cdrom(nullptr), m_paranoia(nullptr)
 {
 }
@@ -24,12 +29,12 @@ bool Paranoia::open(string const& _device)
 		m_cdrom = cdio_cddap_identify(_device.c_str(), 0, nullptr);
 
 	if (!m_cdrom)
-		throw "Can't find CDROM device.";
+		throw CannotFindCDROMDevice();
 
 	cdio_cddap_verbose_set(m_cdrom, CDDA_MESSAGE_PRINTIT, CDDA_MESSAGE_PRINTIT);
 
 	if (cdio_cddap_open(m_cdrom))
-		throw "Unable to open disc.";
+		throw UnableToOpenDisc();
 
 	if (m_cdrom)
 		m_paranoia = cdio_paranoia_init(m_cdrom);
@@ -40,22 +45,45 @@ bool Paranoia::open(string const& _device)
 void Paranoia::close()
 {
 	if (m_paranoia)
+	{
 		cdio_paranoia_free(m_paranoia);
+		m_paranoia = nullptr;
+	}
 
 	if (m_cdrom)
+	{
 		cdio_cddap_close(m_cdrom);
+		m_cdrom = nullptr;
+	}
 }
 
 unsigned Paranoia::tracks() const
 {
-	return cdio_cddap_tracks(m_cdrom);
+	int ret = cdio_cddap_tracks(m_cdrom);
+	if (ret == 255)
+		return 0;
+	return ret;
 }
 
-struct TroubleGettingStartingLSN {};
-struct ParanoiaSentNoData {};
-
-void Paranoia::rip(unsigned _track, function<void(unsigned, unsigned, int16_t const*, size_t)> const& _f, int _flags)
+size_t Paranoia::frameLength()
 {
+	return CDIO_CD_FRAMESIZE_RAW / sizeof(int16_t) / 2;
+}
+
+size_t Paranoia::trackLength(unsigned _track) const
+{
+	if (cdio_get_track_format(m_cdrom->p_cdio, _track + 1) != TRACK_FORMAT_AUDIO)
+		return 0;
+	lsn_t begin = cdio_cddap_track_firstsector(m_cdrom, _track + 1);
+	lsn_t end = cdio_cddap_track_lastsector(m_cdrom, _track + 1);
+	return (end - begin + 1) * frameLength();
+}
+
+void Paranoia::rip(unsigned _track, function<bool(unsigned, unsigned, int16_t const*)> const& _f, int _flags)
+{
+	if (cdio_get_track_format(m_cdrom->p_cdio, _track + 1) != TRACK_FORMAT_AUDIO)
+		return;
+
 	assert(_track < tracks());
 	lsn_t begin = cdio_cddap_track_firstsector(m_cdrom, _track + 1);
 	lsn_t end = cdio_cddap_track_lastsector(m_cdrom, _track + 1);
@@ -82,6 +110,7 @@ void Paranoia::rip(unsigned _track, function<void(unsigned, unsigned, int16_t co
 		}
 		if (!buffer)
 			throw ParanoiaSentNoData();
-		_f(cursor - begin, end - begin, buffer, CDIO_CD_FRAMESIZE_RAW / sizeof(int16_t));
+		if (!_f(cursor - begin, end - begin, buffer))
+			break;
 	}
 }
