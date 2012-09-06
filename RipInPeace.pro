@@ -15,6 +15,7 @@ QMAKE_CXXFLAGS += --std=c++0x
 LIBS += -lcdio_paranoia -lcdio_cdda -lcdio -lcddb -lFLAC++ -ldiscid -lmusicbrainz4
 
 DEFINES += HAVE_LIBCDIO
+debug: DEFINES += DEBUG
 
 SOURCES += main.cpp \
     RIP.cpp \

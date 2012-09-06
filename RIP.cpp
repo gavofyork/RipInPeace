@@ -1,5 +1,4 @@
 #include "contrib/cd_access.c"
-//#include "contrib/do_query.c"
 #include "contrib/do_read.c"
 
 #include <fcntl.h>
@@ -64,25 +63,58 @@ inline string tSS(QString const& _s)
 	return string(_s.toUtf8().data());
 }
 
-/* TODO: better status indicator
- * TODO: cover art
+/* TODO: cover art
  * TODO: repot freedb & mb4 into DiscInfo
+ * TODO: optimize for tag insertion.
  */
+
+static void paintLogo(QPainter& _p, QRect _r, int _degrees = 360, QColor _back = QColor::fromHsv(0, 128, 192), QColor _fore = QColor::fromHsv(0, 0, 232))
+{
+	int gs = 105;
+	QRect gr = _r.adjusted(6, 6, -6, -6);
+	QLinearGradient grad(gr.topLeft(), gr.bottomRight());
+	_p.setRenderHint(QPainter::Antialiasing, true);
+	_p.setPen(Qt::NoPen);
+	grad.setStops(QGradientStops() << QGradientStop(0, _back) << QGradientStop(0.5, _back.lighter(gs)) << QGradientStop(0.51, _back.darker(gs)) << QGradientStop(1, _back));
+	_p.setBrush(grad);
+	_p.drawEllipse(_r);
+	grad.setStops(QGradientStops() << QGradientStop(0, _fore) << QGradientStop(0.5, _fore.lighter(gs)) << QGradientStop(0.51, _fore.darker(gs)) << QGradientStop(1, _fore));
+	_p.setBrush(grad);
+	if (_degrees)
+		_p.drawPie(_r, 90 * 16, -_degrees * 16);
+	_p.setPen(QColor::fromHsv(0, 0, 0, 96));
+	_p.setBrush(Qt::NoBrush);
+	_p.drawEllipse(_r);
+	_p.setCompositionMode(QPainter::CompositionMode_Source);
+	_p.setPen(Qt::NoPen);
+	_p.setBrush(Qt::transparent);
+	_p.drawEllipse(_r.adjusted(8, 8, -8, -8));
+}
 
 RIP::RIP(): m_path("/media/Data/Music"), m_filename("discartist+' - '+disctitle+(total>1 ? ' ['+index+'-'+total+']' : '')+'/'+sortnumber+' '+(compilation ? artist+' - ' : '')+title+'.flac'"), m_device("/dev/cdrom2"), m_discId(nullptr), m_ripper(nullptr), m_ripped(false)
 {
+	QApplication::setQuitOnLastWindowClosed(false);
 	m_logo = QImage(":/rip.png");
-	m_normal = QIcon(QPixmap::fromImage(m_logo));
 	{
 		QPixmap px(22, 22);
 		px.fill(Qt::transparent);
 		{
 			QPainter p(&px);
-			p.setOpacity(0.5);
-			p.drawImage(0, 0, m_logo);
+			paintLogo(p, px.rect().adjusted(1, 1, -1, -1));
+		}
+		m_normal = QIcon(px);
+	}
+	{
+		QPixmap px(22, 22);
+		px.fill(Qt::transparent);
+		{
+			QPainter p(&px);
+			p.setOpacity(0.95);
+			paintLogo(p, px.rect().adjusted(1, 1, -1, -1));
 		}
 		m_inactive = QIcon(px);
 	}
+
 	setIcon(m_inactive);
 
 	readSettings();
@@ -90,15 +122,19 @@ RIP::RIP(): m_path("/media/Data/Music"), m_filename("discartist+' - '+disctitle+
 	m_settings = new Settings(this);
 	m_popup = new QWidget(0, Qt::FramelessWindowHint);
 	m_info.setupUi(m_popup);
+	m_popup->setEnabled(false);
 	connect(m_info.presets, SIGNAL(currentIndexChanged(int)), SLOT(updatePreset(int)));
 
 	connect(this, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), SLOT(onActivated(QSystemTrayIcon::ActivationReason)));
 	setContextMenu(new QMenu("Rip In Peace"));
-	contextMenu()->addAction("Abort Rip", this, SLOT(onAbortRip()));
+	(m_abortRip = contextMenu()->addAction("Abort Rip", this, SLOT(onAbortRip())))->setEnabled(false);
+#if DEBUG
+	(m_testIcon = contextMenu()->addAction("Test Icon"))->setCheckable(true);
+#endif
 	contextMenu()->addSeparator();
 	contextMenu()->addAction("Settings", m_settings, SLOT(show()));
 	contextMenu()->addAction("About", this, SLOT(onAbout()));
-	contextMenu()->addAction("Quit", qApp, SLOT(quit()));
+	contextMenu()->addAction("Quit", this, SLOT(onQuit()));
 
 	m_conn = cddb_new();
 	m_disc = nullptr;
@@ -109,6 +145,19 @@ RIP::RIP(): m_path("/media/Data/Music"), m_filename("discartist+' - '+disctitle+
 RIP::~RIP()
 {
 	writeSettings();
+	m_aborting = true;
+	if (m_ripper)
+	{
+		m_ripper->join();
+		delete m_ripper;
+		m_ripper = nullptr;
+	}
+	if (m_identifier)
+	{
+		m_identifier->join();
+		delete m_identifier;
+		m_identifier = nullptr;
+	}
 	if (m_disc)
 		cddb_disc_destroy(m_disc);
 	if (m_conn)
@@ -159,6 +208,11 @@ void RIP::onAbortRip()
 	m_aborting = true;
 }
 
+void RIP::onQuit()
+{
+	qApp->quit();
+}
+
 void RIP::onActivated(QSystemTrayIcon::ActivationReason _r)
 {
 	if (_r == QSystemTrayIcon::Trigger)
@@ -167,6 +221,7 @@ void RIP::onActivated(QSystemTrayIcon::ActivationReason _r)
 		if (m_popup->isVisible())
 			m_popup->move(QCursor::pos());
 		m_poppedUp = true;
+		--m_lastPercentDone;	// Trick the system into recalculating the icon.
 	}
 }
 
@@ -184,7 +239,7 @@ void RIP::tagAll()
 				continue;
 			}
 
-			FLAC::Metadata::VorbisComment* vc;
+			FLAC::Metadata::VorbisComment* vc = nullptr;
 			{
 				FLAC::Metadata::Iterator iterator;
 				iterator.init(chain);
@@ -269,19 +324,33 @@ void RIP::timerEvent(QTimerEvent*)
 	if (m_ripped)
 	{
 		m_ripper->join();
+		m_identifier->join();
 		delete m_ripper;
 		m_ripper = nullptr;
+		delete m_identifier;
+		m_identifier = nullptr;
 		m_ripped = false;
 		if (!m_aborting)
 		{
 			takeDiscInfo();
-			tagAll();
-			moveAll();
+			if (m_di.title.empty())
+			{
+				tagAll();
+				moveAll();
+			}
+			else
+			{
+				showMessage("Unknown CD", "Couldn't find the CD with the available resources. Please reinsert once a database entry is accessible and the rip will be finished.");
+			}
 		}
 		m_p.close();
 		m_progress.clear();
 		eject();
+		m_dis.clear();
+		updatePreset(-1);
+		m_popup->setEnabled(false);
 		m_aborting = false;
+		m_abortRip->setEnabled(false);
 	}
 	if (!m_ripper)
 	{
@@ -306,8 +375,10 @@ void RIP::timerEvent(QTimerEvent*)
 				QDir().mkpath(fSS(m_path + "/" + m_temp));
 				m_poppedUp = m_popup->isVisible();
 				m_aborting = false;
+				m_identified = false;
 				m_ripper = new std::thread([&](){ rip(); m_ripped = true; });
-				getDiscInfo();
+				m_abortRip->setEnabled(true);
+				m_identifier = new std::thread([&](){ getDiscInfo(); m_identified = true; });
 			}
 			else
 			{
@@ -322,11 +393,20 @@ void RIP::timerEvent(QTimerEvent*)
 			setIcon(m_inactive);
 		}
 	}
+	if (m_identified && !m_popup->isEnabled() && m_dis.size())
+	{
+		m_info.presets->clear();
+		for (DiscInfo const& di: m_dis)
+			m_info.presets->addItem(fSS(di.artist + " - " + di.title));
+
+		updatePreset(0);
+		m_popup->setEnabled(true);
+	}
 	QString tt;
 	if (m_progress.size())
 		for (unsigned i = 0; i < m_progress.size(); ++i)
 			if (m_progress[i].first != 0 && m_progress[i].first != m_progress[i].second)
-				tt += QString("%1: '%5' %4%\n").arg(int(i + 1))/*.arg(m_progress[i].first).arg(m_progress[i].second)*/.arg(int(m_progress[i].first * 100.0 / m_progress[i].second)).arg(m_di.tracks[i].title.c_str());
+				tt += QString("%1: '%5' %4%\n").arg(int(i + 1)).arg(int(m_progress[i].first * 100.0 / m_progress[i].second)).arg(m_di.tracks[i].title.c_str());
 			else{}
 	else
 		tt = "Ready\n";
@@ -341,17 +421,34 @@ void RIP::timerEvent(QTimerEvent*)
 		total += p.second;
 	}
 	int percentDone = total ? int(done * 100.0 / total) : 0;
+#if DEBUG
+	if (m_testIcon->isChecked())
+	{
+		total = 1;
+		percentDone = m_lastPercentDone == 100 ? 0 : (m_lastPercentDone + 5);
+	}
+#endif
 	if (total && m_lastPercentDone != percentDone)
 	{
-		if (percentDone / 5 != m_lastPercentDone / 5)
+		QPixmap px(22, 22);
+		px.fill(Qt::transparent);
 		{
-			QPixmap px(22, 22);
-			px.fill(Qt::transparent);
-			QPainter(&px).drawImage(0, 20 - percentDone / 5, m_logo);
-			setIcon(QIcon(px));
+			QPainter p(&px);
+			paintLogo(p, px.rect().adjusted(1, 1, -1, -1), percentDone * 360 / 100);
+			if (!m_poppedUp)
+			{
+				p.setPen(QColor(64, 64, 64));
+				p.drawText(px.rect().translated(1, 0), Qt::AlignCenter, "!");
+				p.drawText(px.rect().translated(-1, 0), Qt::AlignCenter, "!");
+				p.drawText(px.rect().translated(0, 1), Qt::AlignCenter, "!");
+				p.drawText(px.rect().translated(0, -1), Qt::AlignCenter, "!");
+				p.setPen(QColor(192, 192, 192));
+				p.drawText(px.rect(), Qt::AlignCenter, "!");
+			}
 		}
-		if (percentDone >= 95 && m_lastPercentDone < 95 && !m_poppedUp)
-			showMessage("Ripping nearly finished", "Ripping is 95% complete; tagging will begin shortly. Are you sure the tags are OK?");
+		setIcon(QIcon(px));
+		if (percentDone >= 90 && m_lastPercentDone < 90 && !m_poppedUp)
+			showMessage("Ripping nearly finished", "Ripping is almost complete; tagging will begin shortly. Are you sure the tags are OK?");
 		m_lastPercentDone = percentDone;
 	}
 }
@@ -373,10 +470,10 @@ void RIP::getDiscInfo()
 {
 	m_dis.clear();
 	m_di = DiscInfo(m_p.tracks());
+	string id;
 	if (m_discId)
 	{
-		m_di.discid = discid_get_id(m_discId);
-
+		id = discid_get_id(m_discId);
 		mb4::CQuery query("RipInPeace");
 		try
 		{
@@ -384,34 +481,36 @@ void RIP::getDiscInfo()
 			if (metadata.Disc() && metadata.Disc()->ReleaseList())
 			{
 				mb4::CReleaseList* releaseList = metadata.Disc()->ReleaseList();
-				for (int count = 0; count < releaseList->NumItems(); count++)
-				{
-					mb4::CRelease* release = releaseList->Item(count);
-					mb4::CQuery::tParamMap params;
-					params["inc"] = "artists labels recordings release-groups url-rels discids artist-credits";
-					metadata = query.Query("release", release->ID(), "", params);
-					if (metadata.Release())
+				for (int count = 0; count < releaseList->NumItems() && !m_aborting; count++)
+					if (mb4::CRelease* release = releaseList->Item(count))
 					{
-						mb4::CRelease* fullRelease = metadata.Release();
-						cerr << (*fullRelease) << endl;
-						m_di.title = fullRelease->Title();
-						m_di.artist = toString(fullRelease->ArtistCredit()->NameCreditList());
-						m_di.setTotal = fullRelease->MediumList()->Count();
-						m_di.year = atoi(fullRelease->Date().substr(0, 4).c_str());
-						auto ml = fullRelease->MediaMatchingDiscID(discid_get_id(m_discId));
-						for (int j = 0; j < ml.NumItems(); ++j)
-							if (ml.Item(j)->TrackList()->NumItems() == (int)m_p.tracks())
+						mb4::CQuery::tParamMap params;
+						params["inc"] = "artists labels recordings release-groups url-rels discids artist-credits";
+						metadata = query.Query("release", release->ID(), "", params);
+						if (metadata.Release())
+						{
+							mb4::CRelease* fullRelease = metadata.Release();
+							cerr << (*fullRelease) << endl;
+							m_di = DiscInfo();
+							m_di.discid = id;
+							m_di.title = fullRelease->Title();
+							m_di.artist = toString(fullRelease->ArtistCredit()->NameCreditList());
+							m_di.setTotal = fullRelease->MediumList()->Count();
+							m_di.year = atoi(fullRelease->Date().substr(0, 4).c_str());
+							auto ml = fullRelease->MediaMatchingDiscID(discid_get_id(m_discId));
+							for (int j = 0; j < ml.NumItems() && !m_aborting; ++j)
 							{
 								m_di.setIndex = ml.Item(j)->Position() - 1;
-								for (int i = 0; i < ml.Item(j)->TrackList()->NumItems(); ++i)
-								{
-									m_di.tracks[ml.Item(j)->TrackList()->Item(i)->Position() - 1].title = ml.Item(j)->TrackList()->Item(i)->Recording()->Title();
-									m_di.tracks[ml.Item(j)->TrackList()->Item(i)->Position() - 1].artist = toString(ml.Item(j)->TrackList()->Item(i)->Recording()->ArtistCredit()->NameCreditList());
-								}
+								for (int i = 0; i < ml.Item(j)->TrackList()->NumItems() && !m_aborting; ++i)
+									if (ml.Item(j)->TrackList()->Item(i)->Position() <= (int)m_p.tracks())
+									{
+										m_di.tracks[ml.Item(j)->TrackList()->Item(i)->Position() - 1].title = ml.Item(j)->TrackList()->Item(i)->Recording()->Title();
+										m_di.tracks[ml.Item(j)->TrackList()->Item(i)->Position() - 1].artist = toString(ml.Item(j)->TrackList()->Item(i)->Recording()->ArtistCredit()->NameCreditList());
+									}
 							}
-						m_dis.push_back(m_di);
+							m_dis.push_back(m_di);
+						}
 					}
-				}
 			}
 		}
 		catch (...)
@@ -421,18 +520,20 @@ void RIP::getDiscInfo()
 	}
 	{
 		int matches = cddb_query(m_conn, m_disc);
-		for (int i = 0; i < matches; ++i)
+		for (int i = 0; i < matches && !m_aborting; ++i)
 		{
 			string category = cddb_disc_get_category_str(m_disc);
 			auto discid = cddb_disc_get_discid(m_disc);
 			auto ndisc = do_read(m_conn, category.c_str(), discid, 0);
 			if (ndisc)
 			{
+				m_di = DiscInfo();
+				m_di.discid = id;
 				m_di.title = cddb_disc_get_title(ndisc);
 				m_di.artist = cddb_disc_get_artist(ndisc);
 				m_di.year = cddb_disc_get_year(ndisc);
-				for (auto track = cddb_disc_get_track_first(ndisc); !!track; track = cddb_disc_get_track_next(ndisc))
-					if (cddb_track_get_number(track) - 1 < (int)m_di.tracks.size())
+				for (auto track = cddb_disc_get_track_first(ndisc); !!track && !m_aborting; track = cddb_disc_get_track_next(ndisc))
+					if (cddb_track_get_number(track) <= (int)m_di.tracks.size())
 					{
 						m_di.tracks[cddb_track_get_number(track) - 1].title = cddb_track_get_title(track);
 						m_di.tracks[cddb_track_get_number(track) - 1].artist = cddb_track_get_artist(track);
@@ -445,12 +546,6 @@ void RIP::getDiscInfo()
 	}
 	if (!m_dis.size())
 		m_dis.push_back(m_di);
-
-	m_info.presets->clear();
-	for (DiscInfo const& di: m_dis)
-		m_info.presets->addItem(fSS(di.artist + " - " + di.title));
-
-	updatePreset(0);
 }
 
 void RIP::takeDiscInfo()

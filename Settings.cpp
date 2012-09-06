@@ -13,7 +13,7 @@ Settings::Settings(RIP* _parent):
 {
 	ui->setupUi(this);
 
-	// populate devices before m_rip is set.
+	// populate devices before m_rip is set so they don't interfere with the configuration.
 	for (auto d: Paranoia::devices())
 		ui->device->addItem(QString::fromUtf8(d.second.c_str()), QString::fromUtf8(d.first.c_str()));
 	for (auto f: Paranoia::flags())
@@ -41,7 +41,7 @@ void Settings::on_close_clicked()
 
 void Settings::on_openDirectory_clicked()
 {
-	QString s = QFileDialog::getExistingDirectory(0, "Locate base directory for music", ui->directory->text());
+	QString s = QFileDialog::getExistingDirectory(this, "Locate base directory for music", ui->directory->text());
 	if (!s.isEmpty())
 		ui->directory->setText(s);
 }

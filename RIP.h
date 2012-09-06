@@ -7,6 +7,7 @@
 #include "Paranoia.h"
 #include "ui_Info.h"
 
+class QAction;
 class QTableWidget;
 class Settings;
 
@@ -36,6 +37,7 @@ private slots:
 	void onActivated(QSystemTrayIcon::ActivationReason);
 	void onAbortRip();
 	void onAbout();
+	void onQuit();
 
 	void updatePreset(int);
 
@@ -58,6 +60,7 @@ private:
 
 	DiscInfo m_di;
 	std::vector<DiscInfo> m_dis;
+	bool m_identified;
 
 	std::string m_path;
 	std::string m_filename;
@@ -69,6 +72,7 @@ private:
 
 	Paranoia m_p;
 	std::thread* m_ripper;
+	std::thread* m_identifier;
 	bool m_ripped;
 	int m_lastPercentDone;
 	bool m_poppedUp;
@@ -85,4 +89,9 @@ private:
 	cddb_disc_s* m_disc;
 
 	bool m_aborting;
+
+	QAction* m_abortRip;
+#if DEBUG
+	QAction* m_testIcon;
+#endif
 };
