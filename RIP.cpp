@@ -227,7 +227,7 @@ void RIP::updatePreset(int _i)
 
 void RIP::onAbout()
 {
-	QMessageBox::about(nullptr, "About Rip in Peace", "<b>Rip in Peace:</b><p>A Ripper that doesn't get in your way.<p>By Gav Wood, 2012.");
+	QMessageBox::about(nullptr, "About Rip in Peace", "<b>Rip in Peace:</b><p>v1.0.0<p>A Ripper that doesn't get in your way.<p>By <b>Gav Wood</b>, 2012.<p>");
 }
 
 void RIP::onAbortRip()
