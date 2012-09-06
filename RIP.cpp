@@ -1,6 +1,3 @@
-#include "contrib/cd_access.c"
-#include "contrib/do_read.c"
-
 #include <fcntl.h>
 #include <linux/cdrom.h>
 #include <sys/ioctl.h>
@@ -16,19 +13,6 @@
 #include <iomanip>
 #include <cassert>
 #include <FLAC++/all.h>
-#include <musicbrainz4/Query.h>
-#include <musicbrainz4/Disc.h>
-#include <musicbrainz4/Release.h>
-#include <musicbrainz4/ArtistCredit.h>
-#include <musicbrainz4/Artist.h>
-#include <musicbrainz4/ArtistList.h>
-#include <musicbrainz4/NameCreditList.h>
-#include <musicbrainz4/NameCredit.h>
-#include <musicbrainz4/MediumList.h>
-#include <musicbrainz4/Medium.h>
-#include <musicbrainz4/Track.h>
-#include <musicbrainz4/Recording.h>
-#include <discid/discid.h>
 #include <QApplication>
 #include <QMessageBox>
 #include <QWidget>
@@ -44,7 +28,6 @@
 #include "ui_Info.h"
 #include "RIP.h"
 using namespace std;
-namespace mb4 = MusicBrainz4;
 
 template <class _T> string toString(_T const& _t)
 {
@@ -64,7 +47,6 @@ inline string tSS(QString const& _s)
 }
 
 /* TODO: cover art
- * TODO: repot freedb & mb4 into DiscInfo
  * TODO: optimize for tag insertion.
  */
 
@@ -91,7 +73,15 @@ static void paintLogo(QPainter& _p, QRect _r, int _degrees = 360, QColor _back =
 	_p.drawEllipse(_r.adjusted(8, 8, -8, -8));
 }
 
-RIP::RIP(): m_path("/media/Data/Music"), m_filename("discartist+' - '+disctitle+(total>1 ? ' ['+index+'-'+total+']' : '')+'/'+sortnumber+' '+(compilation ? artist+' - ' : '')+title+'.flac'"), m_device("/dev/cdrom2"), m_discId(nullptr), m_ripper(nullptr), m_ripped(false)
+RIP::RIP():
+	m_path("/media/Data/Music"),
+	m_filename("discartist+' - '+disctitle+(total>1 ? ' ['+index+'-'+total+']' : '')+'/'+sortnumber+' '+(compilation ? artist+' - ' : '')+title+'.flac'"),
+	m_device("/dev/cdrom2"),
+	m_ripper(nullptr),
+	m_identifier(nullptr),
+	m_ripped(false),
+	m_identified(false),
+	m_poppedUp(false)
 {
 	QApplication::setQuitOnLastWindowClosed(false);
 	m_logo = QImage(":/rip.png");
@@ -136,9 +126,6 @@ RIP::RIP(): m_path("/media/Data/Music"), m_filename("discartist+' - '+disctitle+
 	contextMenu()->addAction("About", this, SLOT(onAbout()));
 	contextMenu()->addAction("Quit", this, SLOT(onQuit()));
 
-	m_conn = cddb_new();
-	m_disc = nullptr;
-
 	startTimer(1000);
 }
 
@@ -158,10 +145,6 @@ RIP::~RIP()
 		delete m_identifier;
 		m_identifier = nullptr;
 	}
-	if (m_disc)
-		cddb_disc_destroy(m_disc);
-	if (m_conn)
-		cddb_destroy(m_conn);
 }
 
 void RIP::readSettings()
@@ -184,7 +167,7 @@ void RIP::writeSettings()
 
 void RIP::updatePreset(int _i)
 {
-	m_di = (int)m_dis.size() > _i && _i >= 0 ? m_dis[_i] : DiscInfo();
+	m_di = (int)m_dis.size() > _i && _i >= 0 ? m_dis[_i] : DiscInfo(m_p.tracks());
 	m_info.title->setText(fSS(m_di.title));
 	m_info.artist->setText(fSS(m_di.artist));
 	m_info.setIndex->setValue(m_di.setIndex + 1);
@@ -333,7 +316,7 @@ void RIP::timerEvent(QTimerEvent*)
 		if (!m_aborting)
 		{
 			takeDiscInfo();
-			if (m_di.title.empty())
+			if (m_dis.size() || !m_di.title.empty())
 			{
 				tagAll();
 				moveAll();
@@ -347,6 +330,7 @@ void RIP::timerEvent(QTimerEvent*)
 		m_progress.clear();
 		eject();
 		m_dis.clear();
+		m_info.presets->clear();
 		updatePreset(-1);
 		m_popup->setEnabled(false);
 		m_aborting = false;
@@ -362,16 +346,9 @@ void RIP::timerEvent(QTimerEvent*)
 			for (unsigned i = 0; i < m_p.tracks(); ++i)
 				m_progress.push_back(make_pair(0, m_p.trackLength(i)));
 
-			if (m_disc)
-				cddb_disc_destroy(m_disc);
-			m_disc = cd_read((char*)m_device.c_str());
-
-			if (m_discId)
-				discid_free(m_discId);
-			m_discId = discid_new();
-			if (discid_read(m_discId, m_device.c_str()))
+			if (m_id.identify(m_device))
 			{
-				m_temp = string("RIP-") + discid_get_id(m_discId);
+				m_temp = "RIP-" + m_id.asString();
 				QDir().mkpath(fSS(m_path + "/" + m_temp));
 				m_poppedUp = m_popup->isVisible();
 				m_aborting = false;
@@ -380,12 +357,6 @@ void RIP::timerEvent(QTimerEvent*)
 				m_abortRip->setEnabled(true);
 				m_identifier = new std::thread([&](){ getDiscInfo(); m_identified = true; });
 			}
-			else
-			{
-				fprintf(stderr, "Error: %s\n", discid_get_error_msg(m_discId));
-				discid_free(m_discId);
-				m_discId = nullptr;
-			}
 		}
 		else
 		{
@@ -393,12 +364,11 @@ void RIP::timerEvent(QTimerEvent*)
 			setIcon(m_inactive);
 		}
 	}
-	if (m_identified && !m_popup->isEnabled() && m_dis.size())
+	if (m_identified && !m_popup->isEnabled())
 	{
 		m_info.presets->clear();
 		for (DiscInfo const& di: m_dis)
 			m_info.presets->addItem(fSS(di.artist + " - " + di.title));
-
 		updatePreset(0);
 		m_popup->setEnabled(true);
 	}
@@ -406,7 +376,7 @@ void RIP::timerEvent(QTimerEvent*)
 	if (m_progress.size())
 		for (unsigned i = 0; i < m_progress.size(); ++i)
 			if (m_progress[i].first != 0 && m_progress[i].first != m_progress[i].second)
-				tt += QString("%1: '%5' %4%\n").arg(int(i + 1)).arg(int(m_progress[i].first * 100.0 / m_progress[i].second)).arg(m_di.tracks[i].title.c_str());
+	tt += QString("%1: '%5' %4%\n").arg(int(i + 1)).arg(int(m_progress[i].first * 100.0 / m_progress[i].second)).arg(i < m_di.tracks.size() ? m_di.tracks[i].title.c_str() : "");
 			else{}
 	else
 		tt = "Ready\n";
@@ -458,94 +428,9 @@ void RIP::eject()
 	QProcess::execute("eject", QStringList() << fSS(m_device));
 }
 
-inline string toString(mb4::CNameCreditList* _a)
-{
-	string ret;
-	for (int i = 0; i < _a->NumItems(); ++i)
-		ret += _a->Item(i)->Artist()->Name() + _a->Item(i)->JoinPhrase();
-	return ret;
-}
-
 void RIP::getDiscInfo()
 {
-	m_dis.clear();
-	m_di = DiscInfo(m_p.tracks());
-	string id;
-	if (m_discId)
-	{
-		id = discid_get_id(m_discId);
-		mb4::CQuery query("RipInPeace");
-		try
-		{
-			mb4::CMetadata metadata = query.Query("discid", discid_get_id(m_discId));
-			if (metadata.Disc() && metadata.Disc()->ReleaseList())
-			{
-				mb4::CReleaseList* releaseList = metadata.Disc()->ReleaseList();
-				for (int count = 0; count < releaseList->NumItems() && !m_aborting; count++)
-					if (mb4::CRelease* release = releaseList->Item(count))
-					{
-						mb4::CQuery::tParamMap params;
-						params["inc"] = "artists labels recordings release-groups url-rels discids artist-credits";
-						metadata = query.Query("release", release->ID(), "", params);
-						if (metadata.Release())
-						{
-							mb4::CRelease* fullRelease = metadata.Release();
-							cerr << (*fullRelease) << endl;
-							m_di = DiscInfo();
-							m_di.discid = id;
-							m_di.title = fullRelease->Title();
-							m_di.artist = toString(fullRelease->ArtistCredit()->NameCreditList());
-							m_di.setTotal = fullRelease->MediumList()->Count();
-							m_di.year = atoi(fullRelease->Date().substr(0, 4).c_str());
-							auto ml = fullRelease->MediaMatchingDiscID(discid_get_id(m_discId));
-							for (int j = 0; j < ml.NumItems() && !m_aborting; ++j)
-							{
-								m_di.setIndex = ml.Item(j)->Position() - 1;
-								for (int i = 0; i < ml.Item(j)->TrackList()->NumItems() && !m_aborting; ++i)
-									if (ml.Item(j)->TrackList()->Item(i)->Position() <= (int)m_p.tracks())
-									{
-										m_di.tracks[ml.Item(j)->TrackList()->Item(i)->Position() - 1].title = ml.Item(j)->TrackList()->Item(i)->Recording()->Title();
-										m_di.tracks[ml.Item(j)->TrackList()->Item(i)->Position() - 1].artist = toString(ml.Item(j)->TrackList()->Item(i)->Recording()->ArtistCredit()->NameCreditList());
-									}
-							}
-							m_dis.push_back(m_di);
-						}
-					}
-			}
-		}
-		catch (...)
-		{
-			cout << "Exception" << endl;
-		}
-	}
-	{
-		int matches = cddb_query(m_conn, m_disc);
-		for (int i = 0; i < matches && !m_aborting; ++i)
-		{
-			string category = cddb_disc_get_category_str(m_disc);
-			auto discid = cddb_disc_get_discid(m_disc);
-			auto ndisc = do_read(m_conn, category.c_str(), discid, 0);
-			if (ndisc)
-			{
-				m_di = DiscInfo();
-				m_di.discid = id;
-				m_di.title = cddb_disc_get_title(ndisc);
-				m_di.artist = cddb_disc_get_artist(ndisc);
-				m_di.year = cddb_disc_get_year(ndisc);
-				for (auto track = cddb_disc_get_track_first(ndisc); !!track && !m_aborting; track = cddb_disc_get_track_next(ndisc))
-					if (cddb_track_get_number(track) <= (int)m_di.tracks.size())
-					{
-						m_di.tracks[cddb_track_get_number(track) - 1].title = cddb_track_get_title(track);
-						m_di.tracks[cddb_track_get_number(track) - 1].artist = cddb_track_get_artist(track);
-					}
-				m_dis.push_back(m_di);
-				cddb_disc_destroy(ndisc);
-			}
-			cddb_query_next(m_conn, m_disc);
-		}
-	}
-	if (!m_dis.size())
-		m_dis.push_back(m_di);
+	m_dis = m_id.lookup(m_p.tracks(), m_aborting);
 }
 
 void RIP::takeDiscInfo()

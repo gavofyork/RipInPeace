@@ -60,7 +60,7 @@ private:
 
 	DiscInfo m_di;
 	std::vector<DiscInfo> m_dis;
-	bool m_identified;
+	DiscIdentity m_id;
 
 	std::string m_path;
 	std::string m_filename;
@@ -68,14 +68,13 @@ private:
 	std::string m_device;
 	int m_paranoia;
 
-	void** m_discId;
-
 	Paranoia m_p;
 	std::thread* m_ripper;
 	std::thread* m_identifier;
 	bool m_ripped;
-	int m_lastPercentDone;
+	bool m_identified;
 	bool m_poppedUp;
+	int m_lastPercentDone;
 
 	std::vector<std::pair<unsigned, unsigned> > m_progress;
 
@@ -84,9 +83,6 @@ private:
 	QImage m_logo;
 	QIcon m_normal;
 	QIcon m_inactive;
-
-	cddb_conn_s* m_conn;
-	cddb_disc_s* m_disc;
 
 	bool m_aborting;
 

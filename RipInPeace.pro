@@ -20,7 +20,8 @@ debug: DEFINES += DEBUG
 SOURCES += main.cpp \
     RIP.cpp \
     Paranoia.cpp \
-    Settings.cpp
+    Settings.cpp \
+    DiscInfo.cpp
 
 HEADERS  += \
     RIP.h \

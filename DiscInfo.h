@@ -32,3 +32,24 @@ struct DiscInfo
 	std::vector<TrackInfo> tracks;
 	std::string discid;		///< MusicBrainz disc ID.
 };
+
+struct cddb_conn_s;
+struct cddb_disc_s;
+
+class DiscIdentity
+{
+public:
+	explicit DiscIdentity(std::string const& _device = std::string());
+	~DiscIdentity();
+
+	std::string const& asString() const { return m_text; }
+
+	bool isNull() const { return m_discId; }
+	bool identify(std::string const& _device);
+	std::vector<DiscInfo> lookup(int _forceTracks, bool& _aborting) const;
+
+private:
+	void** m_discId;
+	std::string m_text;
+	cddb_disc_s* m_disc;
+};

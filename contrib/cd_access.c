@@ -54,7 +54,8 @@ cddb_disc_t *cd_read(char *device)
     if (!device) {
         device = cdio_get_default_device(NULL);
         if (!device) {
-            libcdio_error_exit("unable to get default CD device");
+			fprintf(stderr, "*** unable to get default CD device\n");
+			return nullptr;
         }
     }
     printf("CD-ROM device: %s\n", device);
@@ -62,13 +63,15 @@ cddb_disc_t *cd_read(char *device)
     /* Load the appropriate driver and open the CD-ROM device for reading. */
     cdio = cdio_open(device, DRIVER_UNKNOWN);
     if (!cdio) {
-        libcdio_error_exit("unable to open CD device");
-    }
+		fprintf(stderr, "*** unable to open CD device");
+		return nullptr;
+	}
 
     /* Get the track count for the CD. */
     cnt = cdio_get_num_tracks(cdio);
     if (cnt == 0) {
-        libcdio_error_exit("no audio tracks on CD");
+		fprintf(stderr, "*** no audio tracks on CD");
+		return nullptr;
     }
     printf("CD contains %d track(s)\n", cnt);
 
@@ -86,7 +89,8 @@ cddb_disc_t *cd_read(char *device)
         /* Get frame offset of next track. */
         lba = cdio_get_track_lba(cdio, t);
         if (lba == CDIO_INVALID_LBA) {
-			libcdio_error_exit("track %d has invalid Logical Block Address");
+			fprintf(stderr, "*** track %d has invalid Logical Block Address", t);
+			return nullptr;
         }
 
         /* Add this offset to the list. */
@@ -97,7 +101,8 @@ cddb_disc_t *cd_read(char *device)
        disc in seconds.  We use the LEADOUT_TRACK for this. */
     lba = cdio_get_track_lba(cdio, CDIO_CDROM_LEADOUT_TRACK);
     if (lba == CDIO_INVALID_LBA) {
-        libcdio_error_exit("LEADOUT_TRACK has invalid Logical Block Address");
+		fprintf(stderr, "*** LEADOUT_TRACK has invalid Logical Block Address");
+		return nullptr;
     }
 
     /* Now we have to create the libcddb disc structure. */

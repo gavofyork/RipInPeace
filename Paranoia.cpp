@@ -86,6 +86,8 @@ void Paranoia::close()
 
 unsigned Paranoia::tracks() const
 {
+	if (!m_cdrom)
+		return 0;
 	int ret = cdio_cddap_tracks(m_cdrom);
 	if (ret == 255)
 		return 0;
