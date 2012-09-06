@@ -1,5 +1,6 @@
 #include <QFileDialog>
 #include <QStringList>
+#include <QScriptEngine>
 #include "Paranoia.h"
 #include "RIP.h"
 #include "ui_Settings.h"
@@ -68,6 +69,31 @@ void Settings::on_filename_textChanged()
 {
 	if (m_rip)
 		m_rip->setFilename(ui->filename->toPlainText());
+
+	QScriptEngine s;
+	s.globalObject().setProperty("disctitle", "Programmed to Love", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("discartist", "Bent", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("index", 1, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("total", 1, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("year", 1999, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("compilation", false, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("number", 1, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("sortnumber", "01", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("title", "Exercise 1", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("artist", "Bent", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	auto t = s.evaluate(ui->filename->toPlainText()).toString();
+	s.globalObject().setProperty("disctitle", "Batucada Vol. 2", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("discartist", "Various Artists", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("index", 1, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("total", 2, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("year", 2002, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("compilation", true, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("number", 1, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("sortnumber", "01", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("title", "Toujours L'Amore", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("artist", "Dimitri from Paris", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	t += "\n"+s.evaluate(ui->filename->toPlainText()).toString();
+	ui->examples->setPlainText(t);
 }
 
 void Settings::populate()

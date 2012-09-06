@@ -1,10 +1,3 @@
-#include <fcntl.h>
-#include <linux/cdrom.h>
-#include <sys/ioctl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-
 #include <queue>
 #include <thread>
 #include <mutex>
