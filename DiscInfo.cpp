@@ -60,6 +60,11 @@ bool DiscIdentity::identify(string const& _device)
 	}
 }
 
+static bool isVA(string const& _a)
+{
+	return _a == "Various" || _a == "Various Artists" || _a == "various" || _a == "VA" || _a == "various artists" || _a == "Various artists";
+}
+
 std::vector<DiscInfo> DiscIdentity::lookup(int _forceTracks, bool& _aborting) const
 {
 	std::vector<DiscInfo> ret;
@@ -73,7 +78,8 @@ std::vector<DiscInfo> DiscIdentity::lookup(int _forceTracks, bool& _aborting) co
 			if (metadata.Disc() && metadata.Disc()->ReleaseList())
 			{
 				mb4::CReleaseList* releaseList = metadata.Disc()->ReleaseList();
-				for (int count = 0; count < releaseList->NumItems() && !_aborting; count++)
+				int nr = releaseList->NumItems();
+				for (int count = 0; count < nr && !_aborting; count++)
 					if (mb4::CRelease* release = releaseList->Item(count))
 					{
 						mb4::CQuery::tParamMap params;
@@ -87,6 +93,8 @@ std::vector<DiscInfo> DiscIdentity::lookup(int _forceTracks, bool& _aborting) co
 							di.discid = m_text;
 							di.title = fullRelease->Title();
 							di.artist = toString(fullRelease->ArtistCredit()->NameCreditList());
+							if (isVA(di.artist))
+								di.artist = "";
 							di.setTotal = fullRelease->MediumList()->Count();
 							di.year = atoi(fullRelease->Date().substr(0, 4).c_str());
 							auto ml = fullRelease->MediaMatchingDiscID(discid_get_id(m_discId));
@@ -101,6 +109,7 @@ std::vector<DiscInfo> DiscIdentity::lookup(int _forceTracks, bool& _aborting) co
 									}
 							}
 							ret.push_back(di);
+							break;
 						}
 					}
 			}
@@ -126,6 +135,8 @@ std::vector<DiscInfo> DiscIdentity::lookup(int _forceTracks, bool& _aborting) co
 				di.discid = m_text;
 				di.title = cddb_disc_get_title(ndisc);
 				di.artist = cddb_disc_get_artist(ndisc);
+				if (isVA(di.artist))
+					di.artist = "";
 				di.year = cddb_disc_get_year(ndisc);
 				for (auto track = cddb_disc_get_track_first(ndisc); !!track && !_aborting; track = cddb_disc_get_track_next(ndisc))
 					if (cddb_track_get_number(track) <= (int)di.tracks.size())

@@ -28,6 +28,7 @@ Settings::Settings(RIP* _parent):
 
 	populate();
 	connect(ui->directory, SIGNAL(textEdited(QString)), m_rip, SLOT(setDirectory(QString)));
+	connect(ui->squeeze, SIGNAL(valueChanged(int)), m_rip, SLOT(setSqueeze(int)));
 }
 
 Settings::~Settings()
@@ -81,24 +82,25 @@ void Settings::on_filename_textChanged()
 	s.globalObject().setProperty("sortnumber", "01", QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("title", "Exercise 1", QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("artist", "Bent", QScriptValue::ReadOnly|QScriptValue::Undeletable);
-	auto t = s.evaluate(ui->filename->toPlainText()).toString();
-	s.globalObject().setProperty("disctitle", "Batucada Vol. 2", QScriptValue::ReadOnly|QScriptValue::Undeletable);
-	s.globalObject().setProperty("discartist", "Various Artists", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	auto t = "<font color='#888'>" + s.evaluate(ui->filename->toPlainText()).toString();
+	s.globalObject().setProperty("disctitle", "Batucada 2", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("discartist", "", QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("index", 1, QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("total", 2, QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("year", 2002, QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("compilation", true, QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("number", 1, QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("sortnumber", "01", QScriptValue::ReadOnly|QScriptValue::Undeletable);
-	s.globalObject().setProperty("title", "Toujours L'Amore", QScriptValue::ReadOnly|QScriptValue::Undeletable);
-	s.globalObject().setProperty("artist", "Dimitri from Paris", QScriptValue::ReadOnly|QScriptValue::Undeletable);
-	t += "\n"+s.evaluate(ui->filename->toPlainText()).toString();
-	ui->examples->setPlainText(t);
+	s.globalObject().setProperty("title", "Otonal", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("artist", "Audio Lotion", QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	t += "<hr>" + s.evaluate(ui->filename->toPlainText()).toString() + "</font>";
+	ui->examples->setHtml(t);
 }
 
 void Settings::populate()
 {
 	ui->directory->setText(m_rip->directory());
+	ui->squeeze->setValue(m_rip->squeeze());
 	ui->filename->setPlainText(m_rip->filename());
 	ui->device->setCurrentIndex(ui->device->findData(m_rip->device()));
 	int fs = m_rip->paranoia();

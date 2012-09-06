@@ -43,10 +43,12 @@ inline string tSS(QString const& _s)
  * TODO: optimize for tag insertion.
  */
 
-static void paintLogo(QPainter& _p, QRect _r, int _degrees = 360, QColor _back = QColor::fromHsv(0, 128, 192), QColor _fore = QColor::fromHsv(0, 0, 232))
+static void paintLogo(QPainter& _p, QRect _r, int _degrees = 360, QVector<float> const& _split = QVector<float>(), QColor _back = QColor::fromHsv(0, 128, 192), QColor _fore = QColor::fromHsv(0, 0, 232))
 {
-	int gs = 105;
-	QRect gr = _r.adjusted(6, 6, -6, -6);
+	int gs = _split.size() ? 110 : 105;
+	float wx = _r.width();
+	float wy = _r.height();
+	QRect gr = _r.adjusted(wx * .3, wy * .3, -wx * .3, -wy * .3);
 	QLinearGradient grad(gr.topLeft(), gr.bottomRight());
 	_p.setRenderHint(QPainter::Antialiasing, true);
 	_p.setPen(Qt::NoPen);
@@ -60,33 +62,74 @@ static void paintLogo(QPainter& _p, QRect _r, int _degrees = 360, QColor _back =
 	_p.setPen(QColor::fromHsv(0, 0, 0, 96));
 	_p.setBrush(Qt::NoBrush);
 	_p.drawEllipse(_r);
+
+	_p.setPen(QPen(QColor::fromHsv(0, 0, 0, 32), 0, Qt::DotLine));
+	_p.setBrush(QColor::fromHsv(0, 0, 0, 8));
+	for (int i = 1; i < _split.size(); i += 2)
+		_p.drawPie(_r, 90 * 16 - _split[i - 1] * 360 * 16, (_split[i - 1] - _split[i]) * 360 * 16);
+
 	_p.setCompositionMode(QPainter::CompositionMode_Source);
 	_p.setPen(Qt::NoPen);
 	_p.setBrush(Qt::transparent);
-	_p.drawEllipse(_r.adjusted(8, 8, -8, -8));
+	_p.drawEllipse(_r.adjusted(wx * .4, wy * .4, -wx * .4, -wy * .4));
+	_p.setCompositionMode(QPainter::CompositionMode_SourceOver);
+	_p.setPen(QColor::fromHsv(0, 0, 0, 96));
+	_p.setBrush(Qt::NoBrush);
+	_p.drawEllipse(_r.adjusted(wx * .4, wy * .4, -wx * .4, -wy * .4));
+}
+
+Progress::Progress(RIP* _r): QWidget(0, Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint), m_r(_r)
+{
+	resize(176, 192);
+}
+
+void Progress::paintEvent(QPaintEvent*)
+{
+	size_t total = 0;
+	QVector<float> f;
+	f.reserve(m_r->progress().size());
+	for (auto i: m_r->progress())
+		total += i.second;
+	int pos;
+	for (auto i: m_r->progress())
+	{
+		f.push_back(float(pos) / total);
+		pos += i.second;
+	}
+
+	QPainter p(this);
+	auto r = rect();
+	QPixmap px(140, 140);
+	px.fill(Qt::transparent);
+	{
+		QPainter p(&px);
+		paintLogo(p, QRect(6, 6, 128, 128), 360 * m_r->amountDone(), f);
+	}
+	QLinearGradient g(r.topLeft(), r.bottomLeft());
+	g.setStops(QGradientStops() << QGradientStop(0, QColor::fromHsv(0, 0, 96)) << QGradientStop(1, QColor::fromHsv(0, 0, 48)));
+	p.fillRect(r, g);
+	p.drawPixmap(18, 0, px);
+	p.setPen(QColor::fromHsv(0, 0, 64));
+	p.drawRect(r.adjusted(0, 0, -1, -1));
+	p.setPen(Qt::black);
+	p.drawText(QRect(0, 133, width(), 58), Qt::AlignCenter|Qt::TextWordWrap, m_r->toolTip());
+	p.setPen(QColor::fromHsv(0, 0, 192));
+	p.drawText(QRect(0, 134, width(), 58), Qt::AlignCenter|Qt::TextWordWrap, m_r->toolTip());
 }
 
 RIP::RIP():
 	m_path("/media/Data/Music"),
-	m_filename("discartist+' - '+disctitle+(total>1 ? ' ['+index+'-'+total+']' : '')+'/'+sortnumber+' '+(compilation ? artist+' - ' : '')+title+'.flac'"),
+	m_filename("(discartist ? discartist : 'Various')+' - '+disctitle+(total>1 ? ' ['+index+'-'+total+']' : '')+'/'+sortnumber+' '+(compilation ? artist+' - ' : '')+title+'.flac'"),
 	m_device("/dev/cdrom2"),
+	m_paranoia(Paranoia::defaultFlags()),
+	m_squeeze(0),
 	m_ripper(nullptr),
 	m_identifier(nullptr),
 	m_ripped(false),
 	m_identified(false),
-	m_poppedUp(false)
+	m_confirmed(false)
 {
 	QApplication::setQuitOnLastWindowClosed(false);
-	m_logo = QImage(":/rip.png");
-	{
-		QPixmap px(22, 22);
-		px.fill(Qt::transparent);
-		{
-			QPainter p(&px);
-			paintLogo(p, px.rect().adjusted(1, 1, -1, -1));
-		}
-		m_normal = QIcon(px);
-	}
 	{
 		QPixmap px(22, 22);
 		px.fill(Qt::transparent);
@@ -103,14 +146,17 @@ RIP::RIP():
 	readSettings();
 
 	m_settings = new Settings(this);
-	m_popup = new QWidget(0, Qt::FramelessWindowHint);
+	m_progressPie = new Progress(this);
+	m_popup = new QWidget(0, Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint);
 	m_info.setupUi(m_popup);
 	m_popup->setEnabled(false);
 	connect(m_info.presets, SIGNAL(currentIndexChanged(int)), SLOT(updatePreset(int)));
+	connect(m_info.confirm, SIGNAL(clicked()), SLOT(onConfirm()));
 
 	connect(this, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), SLOT(onActivated(QSystemTrayIcon::ActivationReason)));
-	setContextMenu(new QMenu("Rip In Peace"));
+	setContextMenu(new QMenu("Rip in Peace"));
 	(m_abortRip = contextMenu()->addAction("Abort Rip", this, SLOT(onAbortRip())))->setEnabled(false);
+	(m_unconfirm = contextMenu()->addAction("Unconfirm", this, SLOT(onUnconfirm())))->setEnabled(false);
 #if DEBUG
 	(m_testIcon = contextMenu()->addAction("Test Icon"))->setCheckable(true);
 #endif
@@ -118,6 +164,8 @@ RIP::RIP():
 	contextMenu()->addAction("Settings", m_settings, SLOT(show()));
 	contextMenu()->addAction("About", this, SLOT(onAbout()));
 	contextMenu()->addAction("Quit", this, SLOT(onQuit()));
+
+	connect(this, SIGNAL(messageClicked()), m_popup, SLOT(show()));
 
 	startTimer(1000);
 }
@@ -147,6 +195,7 @@ void RIP::readSettings()
 	m_path = tSS(s.value("directory", fSS(m_path)).toString());
 	m_device = tSS(s.value("device", fSS(m_device)).toString());
 	m_paranoia = s.value("paranoia", m_paranoia).toInt();
+	m_squeeze = s.value("squeeze", m_squeeze).toInt();
 }
 
 void RIP::writeSettings()
@@ -156,11 +205,13 @@ void RIP::writeSettings()
 	s.setValue("directory", fSS(m_path));
 	s.setValue("device", fSS(m_device));
 	s.setValue("paranoia", m_paranoia);
+	s.setValue("squeeze", m_squeeze);
 }
 
 void RIP::updatePreset(int _i)
 {
 	m_di = (int)m_dis.size() > _i && _i >= 0 ? m_dis[_i] : DiscInfo(m_p.tracks());
+	--m_lastPercentDone;	// Trick the system into recalculating the icon.
 	m_info.title->setText(fSS(m_di.title));
 	m_info.artist->setText(fSS(m_di.artist));
 	m_info.setIndex->setValue(m_di.setIndex + 1);
@@ -193,12 +244,32 @@ void RIP::onActivated(QSystemTrayIcon::ActivationReason _r)
 {
 	if (_r == QSystemTrayIcon::Trigger)
 	{
-		m_popup->setVisible(!m_popup->isVisible());
-		if (m_popup->isVisible())
-			m_popup->move(QCursor::pos());
-		m_poppedUp = true;
-		--m_lastPercentDone;	// Trick the system into recalculating the icon.
+		if (m_confirmed && m_progressPie)
+			m_progressPie->setVisible(!m_progressPie->isVisible());
+		else
+			m_popup->setVisible(!m_popup->isVisible());
 	}
+}
+
+void RIP::onConfirm()
+{
+	m_confirmed = true;
+	--m_lastPercentDone;	// Trick the system into recalculating the icon.
+	m_unconfirm->setEnabled(true);
+	if (m_popup->isVisible())
+	{
+		m_popup->hide();
+		m_progressPie->show();
+	}
+}
+
+void RIP::onUnconfirm()
+{
+	m_confirmed = false;
+	--m_lastPercentDone;	// Trick the system into recalculating the icon.
+	m_unconfirm->setEnabled(false);
+	m_popup->show();
+	m_progressPie->hide();
 }
 
 void RIP::tagAll()
@@ -211,7 +282,7 @@ void RIP::tagAll()
 			FLAC::Metadata::Chain chain;
 			if (!chain.read(filename.c_str()))
 			{
-				cerr << "ERROR: Couldn't read FLAC chain.";
+				cerr << "ERROR: Couldn't read FLAC chain." << endl;
 				continue;
 			}
 
@@ -235,7 +306,7 @@ void RIP::tagAll()
 					if (!iterator.insert_block_after(vc))
 					{
 						delete vc;
-						cerr << "ERROR: Couldn't insert vorbis comment in chain.";
+						cerr << "ERROR: Couldn't insert vorbis comment in chain." << endl;
 						continue;
 					}
 				}
@@ -254,7 +325,7 @@ void RIP::tagAll()
 
 			if (!chain.write())
 			{
-				cerr << "ERROR: Couldn't write FLAC chain.";
+				cerr << "ERROR: Couldn't write FLAC chain." << endl;
 				continue;
 			}
 
@@ -279,7 +350,7 @@ void RIP::moveAll()
 	s.globalObject().setProperty("discartist", scrubbed(fSS(m_di.artist)), QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("index", m_di.setIndex + 1, QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("total", m_di.setTotal, QScriptValue::ReadOnly|QScriptValue::Undeletable);
-	s.globalObject().setProperty("year", m_di.year, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("year", m_di.year == 1900 ? QString() : QString::number(m_di.year), QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("compilation", m_di.isCompilation(), QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	for (unsigned i = 0; i < m_di.tracks.size(); ++i)
 		if (m_p.trackLength(i))
@@ -295,8 +366,24 @@ void RIP::moveAll()
 	QDir().rmdir(fSS(m_path + "/" + m_temp));
 }
 
+float RIP::amountDone() const
+{
+	size_t total = 0;
+	size_t done = 0;
+	for (auto p: m_progress)
+	{
+		done += p.first;
+		total += p.second;
+	}
+	return total ? float(done) / total : -1.f;
+}
+
 void RIP::timerEvent(QTimerEvent*)
 {
+	m_popup->move(geometry().topLeft());
+	m_progressPie->move(geometry().topLeft());
+	if (m_progressPie->isVisible())
+		m_progressPie->update();
 	if (m_ripped)
 	{
 		m_ripper->join();
@@ -328,6 +415,8 @@ void RIP::timerEvent(QTimerEvent*)
 		m_popup->setEnabled(false);
 		m_aborting = false;
 		m_abortRip->setEnabled(false);
+		m_unconfirm->setEnabled(false);
+		m_progressPie->hide();
 	}
 	if (!m_ripper)
 	{
@@ -343,7 +432,7 @@ void RIP::timerEvent(QTimerEvent*)
 			{
 				m_temp = "RIP-" + m_id.asString();
 				QDir().mkpath(fSS(m_path + "/" + m_temp));
-				m_poppedUp = m_popup->isVisible();
+				m_confirmed = false;
 				m_aborting = false;
 				m_identified = false;
 				m_ripper = new std::thread([&](){ rip(); m_ripped = true; });
@@ -369,50 +458,45 @@ void RIP::timerEvent(QTimerEvent*)
 	if (m_progress.size())
 		for (unsigned i = 0; i < m_progress.size(); ++i)
 			if (m_progress[i].first != 0 && m_progress[i].first != m_progress[i].second)
-	tt += QString("%1: '%5' %4%\n").arg(int(i + 1)).arg(int(m_progress[i].first * 100.0 / m_progress[i].second)).arg(i < m_di.tracks.size() ? m_di.tracks[i].title.c_str() : "");
+				tt += QString("%1: %2%\n").arg(i < m_di.tracks.size() && m_di.tracks[i].title.size() ? fSS(m_di.tracks[i].title) : QString("Track %1").arg(i + 1)).arg(int(m_progress[i].first * 100.0 / m_progress[i].second));
 			else{}
 	else
 		tt = "Ready\n";
 	tt.chop(1);
 	setToolTip(tt);
 
-	size_t total = 0;
-	size_t done = 0;
-	for (auto p: m_progress)
-	{
-		done += p.first;
-		total += p.second;
-	}
-	int percentDone = total ? int(done * 100.0 / total) : 0;
+	int percDone = amountDone() * 100;
 #if DEBUG
 	if (m_testIcon->isChecked())
-	{
-		total = 1;
-		percentDone = m_lastPercentDone == 100 ? 0 : (m_lastPercentDone + 5);
-	}
+		percDone = m_lastPercentDone == 100 ? 0 : (m_lastPercentDone + 5);
 #endif
-	if (total && m_lastPercentDone != percentDone)
+	if (percDone >= 0 && m_lastPercentDone != percDone)
 	{
 		QPixmap px(22, 22);
 		px.fill(Qt::transparent);
 		{
 			QPainter p(&px);
-			paintLogo(p, px.rect().adjusted(1, 1, -1, -1), percentDone * 360 / 100);
-			if (!m_poppedUp)
+			paintLogo(p, px.rect().adjusted(1, 1, -1, -1), percDone * 360 / 100);
+			QString m = m_confirmed ? "" : m_info.title->text().isEmpty() ? "!" : "?";
+#if DEBUG
+			if (m_testIcon->isChecked())
+				m = percDone < 30 ? "!" : percDone < 60 ? "?" : "";
+#endif
+			if (m.size())
 			{
 				p.setPen(QColor(64, 64, 64));
-				p.drawText(px.rect().translated(1, 0), Qt::AlignCenter, "!");
-				p.drawText(px.rect().translated(-1, 0), Qt::AlignCenter, "!");
-				p.drawText(px.rect().translated(0, 1), Qt::AlignCenter, "!");
-				p.drawText(px.rect().translated(0, -1), Qt::AlignCenter, "!");
+				p.drawText(px.rect().translated(1, 0), Qt::AlignCenter, m);
+				p.drawText(px.rect().translated(-1, 0), Qt::AlignCenter, m);
+				p.drawText(px.rect().translated(0, 1), Qt::AlignCenter, m);
+				p.drawText(px.rect().translated(0, -1), Qt::AlignCenter, m);
 				p.setPen(QColor(192, 192, 192));
-				p.drawText(px.rect(), Qt::AlignCenter, "!");
+				p.drawText(px.rect(), Qt::AlignCenter, m);
 			}
 		}
 		setIcon(QIcon(px));
-		if (percentDone >= 90 && m_lastPercentDone < 90 && !m_poppedUp)
+		if (percDone >= 90 && m_lastPercentDone < 90 && !m_confirmed)
 			showMessage("Ripping nearly finished", "Ripping is almost complete; tagging will begin shortly. Are you sure the tags are OK?");
-		m_lastPercentDone = percentDone;
+		m_lastPercentDone = percDone;
 	}
 }
 
@@ -470,7 +554,7 @@ void RIP::rip()
 				f.set_channels(2);
 				f.set_bits_per_sample(16);
 				f.set_sample_rate(44100);
-				f.set_compression_level(0);
+				f.set_compression_level(m_squeeze);
 				f.set_total_samples_estimate(m_progress[i].second);
 
 				while (true)

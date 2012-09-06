@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Form</string>
+   <string>Rip in Peace</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
    <item row="4" column="0">
@@ -21,43 +21,6 @@
      </property>
      <property name="prefix">
       <string>Disc </string>
-     </property>
-     <property name="minimum">
-      <number>1</number>
-     </property>
-    </widget>
-   </item>
-   <item row="2" column="0" colspan="3">
-    <widget class="QLineEdit" name="artist">
-     <property name="placeholderText">
-      <string>Artist</string>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="2">
-    <widget class="QSpinBox" name="year">
-     <property name="prefix">
-      <string>Year: </string>
-     </property>
-     <property name="minimum">
-      <number>1900</number>
-     </property>
-     <property name="maximum">
-      <number>2100</number>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="0" colspan="3">
-    <widget class="QLineEdit" name="title">
-     <property name="placeholderText">
-      <string>Title</string>
-     </property>
-    </widget>
-   </item>
-   <item row="4" column="1">
-    <widget class="QSpinBox" name="setTotal">
-     <property name="prefix">
-      <string>of </string>
      </property>
      <property name="minimum">
       <number>1</number>
@@ -82,10 +45,10 @@
       <bool>false</bool>
      </attribute>
      <attribute name="verticalHeaderDefaultSectionSize">
-      <number>18</number>
+      <number>14</number>
      </attribute>
      <attribute name="verticalHeaderMinimumSectionSize">
-      <number>18</number>
+      <number>14</number>
      </attribute>
      <column>
       <property name="text">
@@ -99,11 +62,84 @@
      </column>
     </widget>
    </item>
+   <item row="1" column="0" colspan="3">
+    <widget class="QLineEdit" name="title">
+     <property name="placeholderText">
+      <string>Title</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0" colspan="3">
+    <widget class="QLineEdit" name="artist">
+     <property name="placeholderText">
+      <string>(Various Artists)</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QSpinBox" name="setTotal">
+     <property name="prefix">
+      <string>of </string>
+     </property>
+     <property name="minimum">
+      <number>1</number>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="2">
+    <widget class="QSpinBox" name="year">
+     <property name="specialValueText">
+      <string>Unknown</string>
+     </property>
+     <property name="prefix">
+      <string>Year: </string>
+     </property>
+     <property name="minimum">
+      <number>1900</number>
+     </property>
+     <property name="maximum">
+      <number>2100</number>
+     </property>
+     <property name="value">
+      <number>1900</number>
+     </property>
+    </widget>
+   </item>
    <item row="0" column="0" colspan="3">
     <widget class="QComboBox" name="presets"/>
    </item>
+   <item row="6" column="2">
+    <widget class="QPushButton" name="confirm">
+     <property name="text">
+      <string>&amp;Confirm</string>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="0" colspan="2">
+    <spacer name="horizontalSpacer">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>40</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>presets</tabstop>
+  <tabstop>title</tabstop>
+  <tabstop>artist</tabstop>
+  <tabstop>setIndex</tabstop>
+  <tabstop>setTotal</tabstop>
+  <tabstop>year</tabstop>
+  <tabstop>tracks</tabstop>
+  <tabstop>confirm</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

@@ -14,6 +14,129 @@
    <string>RIP Settings</string>
   </property>
   <layout class="QGridLayout" name="gridLayout_3">
+   <item row="3" column="1">
+    <widget class="QPushButton" name="close">
+     <property name="text">
+      <string>&amp;Close</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0" colspan="2">
+    <widget class="QGroupBox" name="groupBox">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+       <horstretch>0</horstretch>
+       <verstretch>3</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="title">
+      <string>Output</string>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_2">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item row="3" column="0">
+       <widget class="QLabel" name="label_5">
+        <property name="text">
+         <string>Examples</string>
+        </property>
+        <property name="textFormat">
+         <enum>Qt::PlainText</enum>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="0">
+       <spacer name="verticalSpacer_2">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>114</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item row="0" column="2">
+       <widget class="QToolButton" name="openDirectory">
+        <property name="text">
+         <string>...</string>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1" rowspan="2" colspan="2">
+       <widget class="QPlainTextEdit" name="filename"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QLabel" name="label_3">
+        <property name="text">
+         <string>&amp;Filename</string>
+        </property>
+        <property name="buddy">
+         <cstring>filename</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <spacer name="verticalSpacer_3">
+        <property name="orientation">
+         <enum>Qt::Vertical</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>20</width>
+          <height>40</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item row="0" column="1">
+       <widget class="QLineEdit" name="directory"/>
+      </item>
+      <item row="3" column="1" rowspan="2" colspan="2">
+       <widget class="QTextBrowser" name="examples">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label_2">
+        <property name="text">
+         <string>D&amp;irectory</string>
+        </property>
+        <property name="buddy">
+         <cstring>directory</cstring>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="3" column="0">
+    <spacer name="horizontalSpacer">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>272</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
    <item row="0" column="0" colspan="2">
     <widget class="QGroupBox" name="groupBox_2">
      <property name="sizePolicy">
@@ -26,6 +149,25 @@
       <string>Input</string>
      </property>
      <layout class="QGridLayout" name="gridLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item row="0" column="0">
+       <widget class="QLabel" name="label">
+        <property name="text">
+         <string>&amp;Device</string>
+        </property>
+        <property name="buddy">
+         <cstring>device</cstring>
+        </property>
+       </widget>
+      </item>
       <item row="1" column="1" rowspan="3">
        <widget class="QTreeWidget" name="paranoia">
         <property name="indentation">
@@ -60,16 +202,6 @@
       <item row="0" column="1">
        <widget class="QComboBox" name="device"/>
       </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label">
-        <property name="text">
-         <string>&amp;Device</string>
-        </property>
-        <property name="buddy">
-         <cstring>device</cstring>
-        </property>
-       </widget>
-      </item>
       <item row="1" column="0">
        <widget class="QLabel" name="label_4">
         <property name="text">
@@ -80,106 +212,31 @@
         </property>
        </widget>
       </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="2" column="0">
-    <spacer name="horizontalSpacer">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>272</width>
-       <height>20</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item row="2" column="1">
-    <widget class="QPushButton" name="close">
-     <property name="text">
-      <string>&amp;Close</string>
-     </property>
-    </widget>
-   </item>
-   <item row="1" column="0" colspan="2">
-    <widget class="QGroupBox" name="groupBox">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
-       <horstretch>0</horstretch>
-       <verstretch>3</verstretch>
-      </sizepolicy>
-     </property>
-     <property name="title">
-      <string>Output</string>
-     </property>
-     <layout class="QGridLayout" name="gridLayout_2">
-      <item row="4" column="1" colspan="2">
-       <widget class="QPlainTextEdit" name="examples">
-        <property name="maximumSize">
-         <size>
-          <width>16777215</width>
-          <height>56</height>
-         </size>
+      <item row="4" column="1">
+       <widget class="QSlider" name="squeeze">
+        <property name="maximum">
+         <number>8</number>
         </property>
-        <property name="readOnly">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item row="0" column="1">
-       <widget class="QLineEdit" name="directory"/>
-      </item>
-      <item row="0" column="0">
-       <widget class="QLabel" name="label_2">
-        <property name="text">
-         <string>D&amp;irectory</string>
-        </property>
-        <property name="buddy">
-         <cstring>directory</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="0">
-       <widget class="QLabel" name="label_3">
-        <property name="text">
-         <string>&amp;Filename</string>
-        </property>
-        <property name="buddy">
-         <cstring>filename</cstring>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1" rowspan="2" colspan="2">
-       <widget class="QPlainTextEdit" name="filename"/>
-      </item>
-      <item row="0" column="2">
-       <widget class="QToolButton" name="openDirectory">
-        <property name="text">
-         <string>...</string>
-        </property>
-       </widget>
-      </item>
-      <item row="3" column="1" colspan="2">
-       <widget class="QLabel" name="label_5">
-        <property name="text">
-         <string>Examples</string>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <spacer name="verticalSpacer_2">
         <property name="orientation">
-         <enum>Qt::Vertical</enum>
+         <enum>Qt::Horizontal</enum>
         </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>114</height>
-         </size>
+        <property name="tickPosition">
+         <enum>QSlider::NoTicks</enum>
         </property>
-       </spacer>
+        <property name="tickInterval">
+         <number>1</number>
+        </property>
+       </widget>
+      </item>
+      <item row="4" column="0">
+       <widget class="QLabel" name="label_6">
+        <property name="text">
+         <string>&amp;Squeeze</string>
+        </property>
+        <property name="buddy">
+         <cstring>squeeze</cstring>
+        </property>
+       </widget>
       </item>
      </layout>
     </widget>
@@ -188,9 +245,12 @@
  </widget>
  <tabstops>
   <tabstop>device</tabstop>
+  <tabstop>paranoia</tabstop>
+  <tabstop>squeeze</tabstop>
   <tabstop>directory</tabstop>
   <tabstop>openDirectory</tabstop>
   <tabstop>filename</tabstop>
+  <tabstop>examples</tabstop>
   <tabstop>close</tabstop>
  </tabstops>
  <resources/>
