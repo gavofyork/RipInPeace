@@ -1,5 +1,10 @@
-ripinpeace 1.0.0~rc1 UNRELEASED; urgency=low
+ripinpeace (1.0.0~rc1) precise; urgency=low
 
-Intial version.
+  * First release candidate
+
+ -- Gav Wood <gav@macbookpro>  Fri, 07 Sep 2012 09:26:41 +0100
+
+ripinpeace (1.0.0~rc1) UNRELEASED; urgency=low
+
 
  -- Gav Wood <i@gavwood.com>  Fri, 07 Sep 2012 09:24:39 +0100
