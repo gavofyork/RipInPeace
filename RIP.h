@@ -76,7 +76,7 @@ private:
 
 	virtual void timerEvent(QTimerEvent*);
 
-	QWidget* m_popup;
+	QFrame* m_popup;
 	Settings* m_settings;
 	Ui::Info m_info;
 

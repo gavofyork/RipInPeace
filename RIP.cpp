@@ -45,17 +45,17 @@ inline string tSS(QString const& _s)
 
 static void paintLogo(QPainter& _p, QRect _r, int _degrees = 360, QVector<float> const& _split = QVector<float>(), QColor _back = QColor::fromHsv(0, 128, 192), QColor _fore = QColor::fromHsv(0, 0, 232))
 {
-	int gs = _split.size() ? 110 : 105;
+	int gs = _split.size() ? 103 : 105;
 	float wx = _r.width();
 	float wy = _r.height();
 	QRect gr = _r.adjusted(wx * .3, wy * .3, -wx * .3, -wy * .3);
 	QLinearGradient grad(gr.topLeft(), gr.bottomRight());
 	_p.setRenderHint(QPainter::Antialiasing, true);
 	_p.setPen(Qt::NoPen);
-	grad.setStops(QGradientStops() << QGradientStop(0, _back) << QGradientStop(0.5, _back.lighter(gs)) << QGradientStop(0.51, _back.darker(gs)) << QGradientStop(1, _back));
+	grad.setStops(QGradientStops() << QGradientStop(0, _back) << QGradientStop(_split.size() ? 0.2 : 0.5, _back.lighter(gs)) << QGradientStop(_split.size() ? 0.21 : 0.51, _back.darker(gs)) << QGradientStop(1, _back));
 	_p.setBrush(grad);
 	_p.drawEllipse(_r);
-	grad.setStops(QGradientStops() << QGradientStop(0, _fore) << QGradientStop(0.5, _fore.lighter(gs)) << QGradientStop(0.51, _fore.darker(gs)) << QGradientStop(1, _fore));
+	grad.setStops(QGradientStops() << QGradientStop(0, _fore) << QGradientStop(_split.size() ? 0.2 : 0.5, _fore.lighter(gs)) << QGradientStop(_split.size() ? 0.21 : 0.51, _fore.darker(gs)) << QGradientStop(1, _fore));
 	_p.setBrush(grad);
 	if (_degrees)
 		_p.drawPie(_r, 90 * 16, -_degrees * 16);
@@ -147,7 +147,7 @@ RIP::RIP():
 
 	m_settings = new Settings(this);
 	m_progressPie = new Progress(this);
-	m_popup = new QWidget(0, Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint);
+	m_popup = new QFrame(0, Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint);
 	m_info.setupUi(m_popup);
 	m_popup->setEnabled(false);
 	connect(m_info.presets, SIGNAL(currentIndexChanged(int)), SLOT(updatePreset(int)));
