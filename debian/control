@@ -2,12 +2,12 @@ Source: ripinpeace
 Section: devel
 Priority: optional
 Maintainer: Gav Wood <i@gavwood.com>
-Build-Depends: debhelper (>= 7), cdbs, mawk, grep (>= 2.0.0), sed (>= 4.0.0), libqt4-dev (>= 4.8.0), g++ (>= 4.6.0), libcdio-paranoia-dev libcdio-dev libcdio-cdda-dev libcddb2-dev libflac++-dev libdiscid0-dev libmusicbrainz4-dev
+Build-Depends: debhelper (>= 7), cdbs, mawk, grep (>= 2.0.0), sed (>= 4.0.0), libqt4-dev (>= 4.8.0), g++ (>= 4.6.0), libcdio-paranoia-dev, libcdio-dev, libcdio-cdda-dev, libcddb2-dev, libflac++-dev, libdiscid0-dev, libmusicbrainz4-dev
 Standards-Version: 3.8.3
 Homepage: https://github.com/gavofyork/RipInPeace
 
 Package: martta
 Architecture: any
-Depends: libqt4 libcdio-paranoia1 libcdio13 libcdio-cdda1 libcddb2 libflac++6 libdiscid0 libmusicbrainz4
+Depends: libqt4, libcdio-paranoia1, libcdio13, libcdio-cdda1, libcddb2, libflac++6, libdiscid0, libmusicbrainz4
 Description: CD Ripper
 	Rip in Peace is a CD ripper that doesn't get in your way.
