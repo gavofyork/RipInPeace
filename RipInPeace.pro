@@ -47,7 +47,8 @@ unix {
   DEFINES += DATADIR=\\\"$$DATADIR\\\" PKGDATADIR=\\\"$$PKGDATADIR\\\"
   INSTALLS += target desktop service iconxpm icon26 icon48 icon64
 
-  system (cat $${TARGET}.desktop > $${DESTDIR_TARGET}.desktop)
+  system (cp $${TARGET}.desktop $${DESTDIR_TARGET}.desktop)
+  system (cp RipInPeace.png $${DESTDIR})
   system (echo "Exec=$$BINDIR/$${TARGET}" >> $${DESTDIR_TARGET}.desktop)
   system (echo "Icon=$$DATADIR/icons/hicolor/64x64/apps/$${TARGET}.png" >> $${DESTDIR_TARGET}.desktop)
 

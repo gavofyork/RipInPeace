@@ -21,7 +21,7 @@ class RIP;
 class Progress: public QWidget
 {
 public:
-	Progress();
+	Progress(RIP* _r);
 
 	RIP* rip() const { return m_r; }
 
@@ -36,7 +36,7 @@ class RIP: public QSystemTrayIcon
 	Q_OBJECT
 	
 public:
-	RIP(Progress* _p);
+	RIP();
 	~RIP();
 
 	QString directory() const { return QString::fromUtf8(m_path.c_str()); }
@@ -54,6 +54,7 @@ public slots:
 	void setParanoia(int _s) { m_paranoia = _s; }
 	void setDevice(QString _s) { m_device = _s.toUtf8().data(); }
 	void setSqueeze(int _s) { m_squeeze = _s; }
+	void update();
 
 	void onConfirm();
 	void onUnconfirm();
@@ -65,14 +66,17 @@ private slots:
 	void onQuit();
 
 	void updatePreset(int);
+	void plantInfo();
+	void harvestInfo();
 
 private:
 	void rip();
 	void getDiscInfo();
 	void eject();
-	void takeDiscInfo();
 	void tagAll();
 	void moveAll();
+	void createPopup();
+	void showPopup();
 
 	void readSettings();
 	void writeSettings();
@@ -103,6 +107,7 @@ private:
 	bool m_confirmed;
 	QTime m_started;
 	int m_lastPercentDone;
+	bool m_startingRip;
 
 	std::vector<std::pair<unsigned, unsigned> > m_progress;
 

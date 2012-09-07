@@ -78,13 +78,11 @@ static void paintLogo(QPainter& _p, QRect _r, int _degrees = 360, QVector<float>
 	_p.drawEllipse(_r.adjusted(wx * .4, wy * .4, -wx * .4, -wy * .4));
 }
 
-Progress::Progress(): QWidget(0, Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint)
+Progress::Progress(RIP* _r): QWidget(0, Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint), m_r(_r)
 {
 	QApplication::setQuitOnLastWindowClosed(false);
-	m_r = new RIP(this);
 	resize(156, 192);
 	setWindowIcon(QIcon(":/RipInPeace.png"));
-	m_r->show();
 }
 
 void Progress::paintEvent(QPaintEvent*)
@@ -117,24 +115,22 @@ void Progress::paintEvent(QPaintEvent*)
 	p.setPen(QColor::fromHsv(0, 0, 64));
 	p.drawRect(r.adjusted(0, 0, -1, -1));
 	p.setPen(Qt::black);
-	p.drawText(QRect(0, px.height() - m - 1, width(), height() - px.height() + m), Qt::AlignCenter|Qt::TextWordWrap, m_r->toolTip());
-	p.setPen(QColor::fromHsv(0, 0, 240));
-	p.drawText(QRect(0, px.height() - m, width(), height() - px.height() + m), Qt::AlignCenter|Qt::TextWordWrap, m_r->toolTip());
+	p.drawText(QRect(m, px.height() - m - 1, width() - m * 2, height() - px.height() + m), Qt::AlignCenter|Qt::TextWordWrap, m_r->toolTip());
+	p.setPen(QColor::fromHsv(0, 0, 248));
+	p.drawText(QRect(m, px.height() - m, width() - m * 2, height() - px.height() + m), Qt::AlignCenter|Qt::TextWordWrap, m_r->toolTip());
 }
 
-RIP::RIP(Progress* _p):
-	QSystemTrayIcon(_p),
-	m_path("/media/Data/Music"),
-	m_filename("(discartist ? discartist : 'Various')+' - '+disctitle+(total>1 ? ' ['+index+'-'+total+']' : '')+'/'+sortnumber+' '+(compilation ? artist+' - ' : '')+title+'.flac'"),
-	m_device("/dev/cdrom2"),
+RIP::RIP():
+	m_path("/Music"),
+	m_filename("(albumartist ? albumartist : 'Various Artists') + ' - ' +\n album + (disctotal > 1 ? ' ['+discnumber+'-'+disctotal+']' : '') +\n '/' + sortnumber + ' ' + (compilation ? artist+' - ' : '') +\n title + '.flac'"),
+	m_device("/dev/cdrom"),
 	m_paranoia(Paranoia::defaultFlags()),
 	m_squeeze(0),
 	m_ripper(nullptr),
 	m_identifier(nullptr),
 	m_ripped(false),
 	m_identified(false),
-	m_confirmed(false),
-	m_progressPie(_p)
+	m_confirmed(false)
 {
 	{
 		QPixmap px(22, 22);
@@ -151,12 +147,10 @@ RIP::RIP(Progress* _p):
 
 	readSettings();
 
+	m_progressPie = new Progress(this);
 	m_settings = new Settings(m_progressPie, this);
-	m_popup = new QFrame(m_progressPie, Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint|Qt::Window);
-	m_info.setupUi(m_popup);
+	createPopup();
 	m_popup->setEnabled(false);
-	connect(m_info.presets, SIGNAL(currentIndexChanged(int)), SLOT(updatePreset(int)));
-	connect(m_info.confirm, SIGNAL(clicked()), SLOT(onConfirm()));
 
 	connect(this, SIGNAL(activated(QSystemTrayIcon::ActivationReason)), SLOT(onActivated(QSystemTrayIcon::ActivationReason)));
 	setContextMenu(new QMenu("Rip in Peace"));
@@ -170,7 +164,7 @@ RIP::RIP(Progress* _p):
 	contextMenu()->addAction("About", this, SLOT(onAbout()));
 	contextMenu()->addAction("Quit", this, SLOT(onQuit()));
 
-	connect(this, SIGNAL(messageClicked()), m_popup, SLOT(show()));
+//	connect(this, SIGNAL(messageClicked()), m_popup, SLOT(show()));
 
 	startTimer(1000);
 }
@@ -191,6 +185,16 @@ RIP::~RIP()
 		delete m_identifier;
 		m_identifier = nullptr;
 	}
+}
+
+void RIP::createPopup()
+{
+	m_popup = new QFrame(m_progressPie, Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint|Qt::Window);
+	m_info.setupUi(m_popup);
+	for (DiscInfo const& di: m_dis)
+		m_info.presets->addItem(fSS(di.artist + " - " + di.title));
+	connect(m_info.confirm, SIGNAL(clicked()), SLOT(onConfirm()));
+	connect(m_info.presets, SIGNAL(currentIndexChanged(int)), SLOT(updatePreset(int)));
 }
 
 void RIP::readSettings()
@@ -216,7 +220,12 @@ void RIP::writeSettings()
 void RIP::updatePreset(int _i)
 {
 	m_di = (int)m_dis.size() > _i && _i >= 0 ? m_dis[_i] : DiscInfo(m_p.tracks());
-	--m_lastPercentDone;	// Trick the system into recalculating the icon.
+	update();
+	plantInfo();
+}
+
+void RIP::plantInfo()
+{
 	m_info.title->setText(fSS(m_di.title));
 	m_info.artist->setText(fSS(m_di.artist));
 	m_info.setIndex->setValue(m_di.setIndex + 1);
@@ -232,7 +241,7 @@ void RIP::updatePreset(int _i)
 
 void RIP::onAbout()
 {
-	QMessageBox::about(nullptr, "About Rip in Peace", "<b>Rip in Peace:</b><p>v1.0.0<p>A Ripper that doesn't get in your way.<p>By <b>Gav Wood</b>, 2012.<p>");
+	QMessageBox::about(m_progressPie, "About Rip in Peace", "<b>Rip in Peace</b><br/>v1.0.0<p>A Ripper that doesn't get in your way.<p>By <b>Gav Wood</b>, 2012.");
 }
 
 void RIP::onAbortRip()
@@ -247,34 +256,51 @@ void RIP::onQuit()
 
 void RIP::onActivated(QSystemTrayIcon::ActivationReason _r)
 {
-	if (_r == QSystemTrayIcon::Trigger)
+	// Ignore events if we're spinning-up the CD drive - it doesn't do us any good, and yet it seems to mean windows cannot be displayed?
+	if (_r == QSystemTrayIcon::Trigger && m_ripper)
 	{
 		if (m_confirmed && m_progressPie)
-			m_progressPie->setVisible(!m_progressPie->isVisible());
+			if (m_progressPie->isVisible())
+				m_progressPie->hide();
+			else
+			{
+				m_progressPie->show();
+				m_progressPie->show();
+			}
 		else
-			m_popup->setVisible(!m_popup->isVisible());
+			if (m_popup->isVisible())
+				m_popup->hide();
+			else
+				showPopup();
 	}
+}
+
+void RIP::showPopup()
+{
+	harvestInfo();
+	delete m_popup;
+	createPopup();
+	m_popup->move(geometry().topLeft());
+	plantInfo();
+	m_popup->show();
 }
 
 void RIP::onConfirm()
 {
 	m_confirmed = true;
-	--m_lastPercentDone;	// Trick the system into recalculating the icon.
+	update();
 	m_unconfirm->setEnabled(true);
 	if (m_popup->isVisible())
-	{
 		m_popup->hide();
-		m_progressPie->show();
-	}
 }
 
 void RIP::onUnconfirm()
 {
 	m_confirmed = false;
-	--m_lastPercentDone;	// Trick the system into recalculating the icon.
+	update();
 	m_unconfirm->setEnabled(false);
-	m_popup->show();
 	m_progressPie->hide();
+	showPopup();
 }
 
 void RIP::tagAll()
@@ -395,6 +421,33 @@ float RIP::amountDone() const
 	return total ? float(done) / total : -1.f;
 }
 
+void RIP::update()
+{
+	float ad = amountDone();
+	QPixmap px(22, 22);
+	px.fill(Qt::transparent);
+	{
+		QPainter p(&px);
+		paintLogo(p, px.rect().adjusted(1, 1, -1, -1), ad * 360);
+		QString m = m_confirmed ? "" : m_info.title->text().isEmpty() ? "!" : "?";
+#if DEBUG
+		if (m_testIcon->isChecked())
+			m = ad < .3f ? "!" : ad < .6f ? "?" : "";
+#endif
+		if (m.size())
+		{
+			p.setPen(QColor(64, 64, 64));
+			p.drawText(px.rect().translated(1, 0), Qt::AlignCenter, m);
+			p.drawText(px.rect().translated(-1, 0), Qt::AlignCenter, m);
+			p.drawText(px.rect().translated(0, 1), Qt::AlignCenter, m);
+			p.drawText(px.rect().translated(0, -1), Qt::AlignCenter, m);
+			p.setPen(QColor(192, 192, 192));
+			p.drawText(px.rect(), Qt::AlignCenter, m);
+		}
+	}
+	setIcon(QIcon(px));
+}
+
 void RIP::timerEvent(QTimerEvent*)
 {
 	m_popup->move(geometry().topLeft());
@@ -412,9 +465,11 @@ void RIP::timerEvent(QTimerEvent*)
 			delete m_identifier;
 			m_identifier = nullptr;
 			m_ripped = false;
+			m_popup->hide();
+			m_progressPie->hide();
 			if (!m_aborting)
 			{
-				takeDiscInfo();
+				harvestInfo();
 				if (m_dis.size() || !m_di.title.empty())
 				{
 					tagAll();
@@ -459,6 +514,7 @@ void RIP::timerEvent(QTimerEvent*)
 	{
 		if (m_p.open(m_device) && m_p.tracks() > 0)
 		{
+			m_startingRip = true;
 			// Begin ripping.
 			m_lastPercentDone = 100;
 			m_progress.clear();
@@ -521,28 +577,7 @@ void RIP::timerEvent(QTimerEvent*)
 #endif
 	if (percDone >= 0 && m_lastPercentDone != percDone)
 	{
-		QPixmap px(22, 22);
-		px.fill(Qt::transparent);
-		{
-			QPainter p(&px);
-			paintLogo(p, px.rect().adjusted(1, 1, -1, -1), percDone * 360 / 100);
-			QString m = m_confirmed ? "" : m_info.title->text().isEmpty() ? "!" : "?";
-#if DEBUG
-			if (m_testIcon->isChecked())
-				m = percDone < 30 ? "!" : percDone < 60 ? "?" : "";
-#endif
-			if (m.size())
-			{
-				p.setPen(QColor(64, 64, 64));
-				p.drawText(px.rect().translated(1, 0), Qt::AlignCenter, m);
-				p.drawText(px.rect().translated(-1, 0), Qt::AlignCenter, m);
-				p.drawText(px.rect().translated(0, 1), Qt::AlignCenter, m);
-				p.drawText(px.rect().translated(0, -1), Qt::AlignCenter, m);
-				p.setPen(QColor(192, 192, 192));
-				p.drawText(px.rect(), Qt::AlignCenter, m);
-			}
-		}
-		setIcon(QIcon(px));
+		update();
 		if (percDone >= 90 && m_lastPercentDone < 90 && !m_confirmed && !m_info.title->text().isEmpty())
 			showMessage("Ripping nearly finished", "Ripping is almost complete; tagging will begin shortly. Are you sure the tags are OK?");
 		m_lastPercentDone = percDone;
@@ -559,7 +594,7 @@ void RIP::getDiscInfo()
 	m_dis = m_id.lookup(m_p.tracks(), m_aborting);
 }
 
-void RIP::takeDiscInfo()
+void RIP::harvestInfo()
 {
 	m_di.title = m_info.title->text().toStdString();
 	m_di.artist = m_info.artist->text().toStdString();
@@ -598,6 +633,7 @@ void RIP::rip()
 			auto incoming = new queue<int32_t*>;
 			auto encoder = [=]()
 			{
+				this->m_startingRip = false;
 				FLAC::Encoder::File f;
 				f.init(fn);
 				f.set_channels(2);
