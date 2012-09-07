@@ -3,7 +3,8 @@
 #include <thread>
 #include <vector>
 #include <QSystemTrayIcon>
-#include <QWidget>
+#include <QDialog>
+#include <QTime>
 #include "DiscInfo.h"
 #include "Paranoia.h"
 #include "ui_Info.h"
@@ -20,7 +21,9 @@ class RIP;
 class Progress: public QWidget
 {
 public:
-	Progress(RIP* _r);
+	Progress();
+
+	RIP* rip() const { return m_r; }
 
 private:
 	void paintEvent(QPaintEvent*);
@@ -33,7 +36,7 @@ class RIP: public QSystemTrayIcon
 	Q_OBJECT
 	
 public:
-	RIP();
+	RIP(Progress* _p);
 	~RIP();
 
 	QString directory() const { return QString::fromUtf8(m_path.c_str()); }
@@ -96,7 +99,9 @@ private:
 	std::thread* m_identifier;
 	bool m_ripped;
 	bool m_identified;
+	bool m_justRipped;
 	bool m_confirmed;
+	QTime m_started;
 	int m_lastPercentDone;
 
 	std::vector<std::pair<unsigned, unsigned> > m_progress;

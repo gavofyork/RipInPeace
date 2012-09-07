@@ -7,8 +7,8 @@
 #include "Settings.h"
 using namespace std;
 
-Settings::Settings(RIP* _parent):
-	QDialog(nullptr),
+Settings::Settings(Progress* _parent, RIP* _rip):
+	QDialog(_parent),
 	ui(new Ui::Settings),
 	m_rip(nullptr)
 {
@@ -24,7 +24,7 @@ Settings::Settings(RIP* _parent):
 		it->setCheckState(0, Qt::Unchecked);
 	}
 
-	m_rip = _parent;
+	m_rip = _rip;
 
 	populate();
 	connect(ui->directory, SIGNAL(textEdited(QString)), m_rip, SLOT(setDirectory(QString)));

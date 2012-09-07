@@ -73,7 +73,11 @@
        </widget>
       </item>
       <item row="1" column="1" rowspan="2" colspan="2">
-       <widget class="QPlainTextEdit" name="filename"/>
+       <widget class="QPlainTextEdit" name="filename">
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;Variables available:&lt;br/&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;album&lt;/span&gt; album title&lt;br/&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;albumartist&lt;/span&gt; apparent artist of the album&lt;br/&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;disctotal&lt;/span&gt; total discs in this album&lt;br/&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;discnumber&lt;/span&gt; this disc's number&lt;br/&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;tracktotal&lt;/span&gt; total tracks on this disc&lt;br/&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;tracknumber&lt;/span&gt; this track's number&lt;br/&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;compilation&lt;/span&gt; if all tracks haven't the same artist&lt;br/&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;date&lt;/span&gt; album release date&lt;br/&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;sortnumber&lt;/span&gt; this track's number in alpha-sortable format&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+       </widget>
       </item>
       <item row="1" column="0">
        <widget class="QLabel" name="label_3">

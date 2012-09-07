@@ -78,9 +78,13 @@ static void paintLogo(QPainter& _p, QRect _r, int _degrees = 360, QVector<float>
 	_p.drawEllipse(_r.adjusted(wx * .4, wy * .4, -wx * .4, -wy * .4));
 }
 
-Progress::Progress(RIP* _r): QWidget(0, Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint), m_r(_r)
+Progress::Progress(): QWidget(0, Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint)
 {
-	resize(176, 192);
+	QApplication::setQuitOnLastWindowClosed(false);
+	m_r = new RIP(this);
+	resize(156, 192);
+	setWindowIcon(QIcon(":/RipInPeace.png"));
+	m_r->show();
 }
 
 void Progress::paintEvent(QPaintEvent*)
@@ -90,7 +94,7 @@ void Progress::paintEvent(QPaintEvent*)
 	f.reserve(m_r->progress().size());
 	for (auto i: m_r->progress())
 		total += i.second;
-	int pos;
+	int pos = 0;
 	for (auto i: m_r->progress())
 	{
 		f.push_back(float(pos) / total);
@@ -100,24 +104,26 @@ void Progress::paintEvent(QPaintEvent*)
 	QPainter p(this);
 	auto r = rect();
 	QPixmap px(140, 140);
+	int m = 6;
 	px.fill(Qt::transparent);
 	{
 		QPainter p(&px);
-		paintLogo(p, QRect(6, 6, 128, 128), 360 * m_r->amountDone(), f);
+		paintLogo(p, QRect(m, m, px.width() - m * 2, px.height() - m * 2), 360 * m_r->amountDone(), f);
 	}
 	QLinearGradient g(r.topLeft(), r.bottomLeft());
 	g.setStops(QGradientStops() << QGradientStop(0, QColor::fromHsv(0, 0, 96)) << QGradientStop(1, QColor::fromHsv(0, 0, 48)));
 	p.fillRect(r, g);
-	p.drawPixmap(18, 0, px);
+	p.drawPixmap((width() - px.width()) / 2, 0, px);
 	p.setPen(QColor::fromHsv(0, 0, 64));
 	p.drawRect(r.adjusted(0, 0, -1, -1));
 	p.setPen(Qt::black);
-	p.drawText(QRect(0, 133, width(), 58), Qt::AlignCenter|Qt::TextWordWrap, m_r->toolTip());
-	p.setPen(QColor::fromHsv(0, 0, 192));
-	p.drawText(QRect(0, 134, width(), 58), Qt::AlignCenter|Qt::TextWordWrap, m_r->toolTip());
+	p.drawText(QRect(0, px.height() - m - 1, width(), height() - px.height() + m), Qt::AlignCenter|Qt::TextWordWrap, m_r->toolTip());
+	p.setPen(QColor::fromHsv(0, 0, 240));
+	p.drawText(QRect(0, px.height() - m, width(), height() - px.height() + m), Qt::AlignCenter|Qt::TextWordWrap, m_r->toolTip());
 }
 
-RIP::RIP():
+RIP::RIP(Progress* _p):
+	QSystemTrayIcon(_p),
 	m_path("/media/Data/Music"),
 	m_filename("(discartist ? discartist : 'Various')+' - '+disctitle+(total>1 ? ' ['+index+'-'+total+']' : '')+'/'+sortnumber+' '+(compilation ? artist+' - ' : '')+title+'.flac'"),
 	m_device("/dev/cdrom2"),
@@ -127,9 +133,9 @@ RIP::RIP():
 	m_identifier(nullptr),
 	m_ripped(false),
 	m_identified(false),
-	m_confirmed(false)
+	m_confirmed(false),
+	m_progressPie(_p)
 {
-	QApplication::setQuitOnLastWindowClosed(false);
 	{
 		QPixmap px(22, 22);
 		px.fill(Qt::transparent);
@@ -145,9 +151,8 @@ RIP::RIP():
 
 	readSettings();
 
-	m_settings = new Settings(this);
-	m_progressPie = new Progress(this);
-	m_popup = new QFrame(0, Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint);
+	m_settings = new Settings(m_progressPie, this);
+	m_popup = new QFrame(m_progressPie, Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint|Qt::Window);
 	m_info.setupUi(m_popup);
 	m_popup->setEnabled(false);
 	connect(m_info.presets, SIGNAL(currentIndexChanged(int)), SLOT(updatePreset(int)));
@@ -318,9 +323,11 @@ void RIP::tagAll()
 				vc->append_comment(FLAC::Metadata::VorbisComment::Entry("date", toString(m_di.year).c_str()));
 				vc->append_comment(FLAC::Metadata::VorbisComment::Entry("tracknumber", toString(i + 1).c_str()));
 				vc->append_comment(FLAC::Metadata::VorbisComment::Entry("title", m_di.tracks[i].title.c_str()));
-				vc->append_comment(FLAC::Metadata::VorbisComment::Entry("artist", m_di.tracks[i].artist.c_str()));
+				vc->append_comment(FLAC::Metadata::VorbisComment::Entry("artist", (m_di.tracks[i].artist.size() ? m_di.tracks[i].artist : m_di.artist).c_str()));
 				vc->append_comment(FLAC::Metadata::VorbisComment::Entry("discnumber", toString(m_di.setIndex + 1).c_str()));
 				vc->append_comment(FLAC::Metadata::VorbisComment::Entry("disctotal", toString(m_di.setTotal).c_str()));
+				vc->append_comment(FLAC::Metadata::VorbisComment::Entry("tracktotal", toString(m_di.tracks.size()).c_str()));
+				vc->append_comment(FLAC::Metadata::VorbisComment::Entry("totaltracks", toString(m_di.tracks.size()).c_str()));
 			}
 
 			if (!chain.write())
@@ -346,16 +353,26 @@ QString scrubbed(QString _s)
 void RIP::moveAll()
 {
 	QScriptEngine s;
+	// RIP-style variables - deprecated.
 	s.globalObject().setProperty("disctitle", scrubbed(fSS(m_di.title)), QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("discartist", scrubbed(fSS(m_di.artist)), QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("index", m_di.setIndex + 1, QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("total", m_di.setTotal, QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	s.globalObject().setProperty("year", m_di.year == 1900 ? QString() : QString::number(m_di.year), QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	// Vorbiscomment-style variables. Use these.
 	s.globalObject().setProperty("compilation", m_di.isCompilation(), QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("album", scrubbed(fSS(m_di.title)), QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("albumartist", scrubbed(fSS(m_di.artist)), QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("discnumber", m_di.setIndex + 1, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("disctotal", m_di.setTotal, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+	s.globalObject().setProperty("date", m_di.year == 1900 ? QString() : QString::number(m_di.year), QScriptValue::ReadOnly|QScriptValue::Undeletable);
 	for (unsigned i = 0; i < m_di.tracks.size(); ++i)
 		if (m_p.trackLength(i))
 		{
+			// RIP-style variables - deprecated.
 			s.globalObject().setProperty("number", i + 1, QScriptValue::ReadOnly|QScriptValue::Undeletable);
+			// Vorbiscomment-style variables. Use these.
+			s.globalObject().setProperty("tracknumber", i + 1, QScriptValue::ReadOnly|QScriptValue::Undeletable);
 			s.globalObject().setProperty("sortnumber", QString("%1").arg(i + 1, 2, 10, QChar('0')), QScriptValue::ReadOnly|QScriptValue::Undeletable);
 			s.globalObject().setProperty("title", scrubbed(fSS(m_di.tracks[i].title)), QScriptValue::ReadOnly|QScriptValue::Undeletable);
 			s.globalObject().setProperty("artist", scrubbed(fSS(m_di.tracks[i].artist)), QScriptValue::ReadOnly|QScriptValue::Undeletable);
@@ -386,37 +403,57 @@ void RIP::timerEvent(QTimerEvent*)
 		m_progressPie->update();
 	if (m_ripped)
 	{
-		m_ripper->join();
-		m_identifier->join();
-		delete m_ripper;
-		m_ripper = nullptr;
-		delete m_identifier;
-		m_identifier = nullptr;
-		m_ripped = false;
-		if (!m_aborting)
+		if ((m_identified && m_started.elapsed() > 30000 && m_justRipped && !m_popup->isVisible()) || m_aborting || m_confirmed)
 		{
-			takeDiscInfo();
+			m_ripper->join();
+			m_identifier->join();
+			delete m_ripper;
+			m_ripper = nullptr;
+			delete m_identifier;
+			m_identifier = nullptr;
+			m_ripped = false;
+			if (!m_aborting)
+			{
+				takeDiscInfo();
+				if (m_dis.size() || !m_di.title.empty())
+				{
+					tagAll();
+					moveAll();
+				}
+				else
+					showMessage("Unknown CD", "Couldn't find the CD with the available resources. Please reinsert once a database entry is accessible and the rip will be finished.");
+			}
+			m_p.close();
+			m_progress.clear();
+			eject();
+			m_dis.clear();
+			m_info.presets->clear();
+			updatePreset(-1);
+			m_popup->setEnabled(false);
+			m_aborting = false;
+			m_abortRip->setEnabled(false);
+			m_unconfirm->setEnabled(false);
+			m_progressPie->hide();
+			m_justRipped = false;
+		}
+		else if (m_justRipped)
+		{
 			if (m_dis.size() || !m_di.title.empty())
 			{
-				tagAll();
-				moveAll();
+				showMessage("Please confirm", "Please click to inspect and confirm the CD details entered or abort the rip operation now and re-enter the CD to continue later.");
+				m_justRipped = false;
 			}
-			else
+			else if (!m_popup->isVisible() && m_identified)
 			{
-				showMessage("Unknown CD", "Couldn't find the CD with the available resources. Please reinsert once a database entry is accessible and the rip will be finished.");
+				showMessage("Unknown CD", "Couldn't find the CD with the available resources. Please click to specify and confirm the correct artist/title information or abort the rip.");
+				m_justRipped = false;
+			}
+			else if (m_popup->isVisible())
+			{
+				showMessage("Data acquired", "All audio data from the CD is ripped; press confirm once the CD information is complete.");
+				m_justRipped = false;
 			}
 		}
-		m_p.close();
-		m_progress.clear();
-		eject();
-		m_dis.clear();
-		m_info.presets->clear();
-		updatePreset(-1);
-		m_popup->setEnabled(false);
-		m_aborting = false;
-		m_abortRip->setEnabled(false);
-		m_unconfirm->setEnabled(false);
-		m_progressPie->hide();
 	}
 	if (!m_ripper)
 	{
@@ -435,7 +472,9 @@ void RIP::timerEvent(QTimerEvent*)
 				m_confirmed = false;
 				m_aborting = false;
 				m_identified = false;
-				m_ripper = new std::thread([&](){ rip(); m_ripped = true; });
+				m_started.restart();
+				m_popup->setEnabled(true);
+				m_ripper = new std::thread([&](){ rip(); m_ripped = m_justRipped = true; });
 				m_abortRip->setEnabled(true);
 				m_identifier = new std::thread([&](){ getDiscInfo(); m_identified = true; });
 			}
@@ -446,19 +485,29 @@ void RIP::timerEvent(QTimerEvent*)
 			setIcon(m_inactive);
 		}
 	}
-	if (m_identified && !m_popup->isEnabled())
+	if (m_ripper && !m_aborting && m_identified && !m_confirmed && m_info.title->text().isEmpty() && !m_dis.size())
+	{
+		m_identified = false;
+		if (m_identifier)
+		{
+			m_identifier->join();
+			delete m_identifier;
+		}
+		m_identifier = new std::thread([&](){ getDiscInfo(); m_identified = true; });
+	}
+	if (m_identified && m_info.title->text().isEmpty() && m_dis.size())
 	{
 		m_info.presets->clear();
 		for (DiscInfo const& di: m_dis)
 			m_info.presets->addItem(fSS(di.artist + " - " + di.title));
 		updatePreset(0);
-		m_popup->setEnabled(true);
 	}
+
 	QString tt;
 	if (m_progress.size())
 		for (unsigned i = 0; i < m_progress.size(); ++i)
 			if (m_progress[i].first != 0 && m_progress[i].first != m_progress[i].second)
-				tt += QString("%1: %2%\n").arg(i < m_di.tracks.size() && m_di.tracks[i].title.size() ? fSS(m_di.tracks[i].title) : QString("Track %1").arg(i + 1)).arg(int(m_progress[i].first * 100.0 / m_progress[i].second));
+				tt += QString("%1: %2%\n").arg((int)i < m_info.tracks->rowCount() && m_info.tracks->item(i, 0)->text().size() ? m_info.tracks->item(i, 0)->text() : QString("Track %1").arg(i + 1)).arg(int(m_progress[i].first * 100.0 / m_progress[i].second));
 			else{}
 	else
 		tt = "Ready\n";
@@ -494,7 +543,7 @@ void RIP::timerEvent(QTimerEvent*)
 			}
 		}
 		setIcon(QIcon(px));
-		if (percDone >= 90 && m_lastPercentDone < 90 && !m_confirmed)
+		if (percDone >= 90 && m_lastPercentDone < 90 && !m_confirmed && !m_info.title->text().isEmpty())
 			showMessage("Ripping nearly finished", "Ripping is almost complete; tagging will begin shortly. Are you sure the tags are OK?");
 		m_lastPercentDone = percDone;
 	}

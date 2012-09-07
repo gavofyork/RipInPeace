@@ -7,6 +7,7 @@ class Settings;
 }
 
 class RIP;
+class Progress;
 class QTreeWidgetItem;
 
 class Settings: public QDialog
@@ -14,7 +15,7 @@ class Settings: public QDialog
 	Q_OBJECT
 	
 public:
-	explicit Settings(RIP* _parent);
+	explicit Settings(Progress* _parent, RIP* _rip);
 	~Settings();
 
 public slots:
