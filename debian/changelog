@@ -1,3 +1,9 @@
+ripinpeace (1.0.0~rc3) precise; urgency=low
+
+  * More build fixes
+
+ -- Gav Wood <i@gavwood.com>  Fri, 07 Sep 2012 16:28:16 +0100
+
 ripinpeace (1.0.0~rc2) precise; urgency=low
 
   * Build fixes
