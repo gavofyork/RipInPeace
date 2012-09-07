@@ -1,3 +1,9 @@
+ripinpeace (1.0.0~rc7) precise; urgency=low
+
+  * Initial release.
+
+ -- Gav Wood <i@gavwood.com>  Fri, 07 Sep 2012 18:28:54 +0100
+
 ripinpeace (1.0.0~rc6) precise; urgency=low
 
   * Initial release.
