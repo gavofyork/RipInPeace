@@ -40,7 +40,7 @@ inline string tSS(QString const& _s)
 }
 
 /* TODO: cover art
- * TODO: optimize for tag insertion.
+ * TODO: optimize for tag insertion
  */
 
 static void paintLogo(QPainter& _p, QRect _r, int _degrees = 360, QVector<float> const& _split = QVector<float>(), QColor _back = QColor::fromHsv(0, 128, 192), QColor _fore = QColor::fromHsv(0, 0, 232))
