@@ -236,6 +236,8 @@ void RIP::plantInfo()
 	{
 		m_info.tracks->setItem(i, 0, new QTableWidgetItem(fSS(m_di.tracks[i].title)));
 		m_info.tracks->setItem(i, 1, new QTableWidgetItem(fSS(m_di.tracks[i].artist)));
+		if (m_p.trackLength(i) == 0)
+			m_info.tracks->hideRow(i);
 	}
 }
 
