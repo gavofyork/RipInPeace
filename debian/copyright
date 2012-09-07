@@ -1,18 +1,18 @@
 This package was debianized by:
 
-    Gav Wood <gavin@quidprocode.co.uk> on Mon, 12 Oct 2009 19:23:43 +0200
+    Gav Wood <i@gavwood.com> on 7 Sep 2012 19:23:43 +0200
 
 It was downloaded from:
 
-    <http://martta.net>
+    <http://github.com/gavofyork/RipInPeace>
 
 Upstream Author(s):
 
-    Gav Wood <gavin@quidprocode.co.uk>
+    Gav Wood <i@gavwood.com>
 
 Copyright:
 
-    <Copyright (C) 2010 quid pro code Limited (UK)>
+    <Copyright (C) 2012 Gav Wood>
 
 License:
 
@@ -30,16 +30,15 @@ License:
     along with this package; if not, write to the Free Software
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
 
-    Though all of Martta is available under the GPL, parts of Martta have
-    certain exception clauses; see COPYING.Martta and COPYING.MarttaSupport
-    for more details.
+    Though all of Rip in Peace is available under the GPL, parts of Rip in
+    Peace have certain exception clauses; see COPYING for more details.
 
 On Debian systems, the complete text of the GNU General
 Public License can be found in `/usr/share/common-licenses/GPL'.
 
 The Debian packaging is:
 
-    Copyright C) 2010, Gav Wood <gavin@quidprocode.co.uk>
+    Copyright C) 2010, Gav Wood <i@gavwood.com>
 
 and is licensed under the GPL, see above.
 
