@@ -1,5 +1,11 @@
+ripinpeace (1.0.0~rc1) precise; urgency=low
+
+  * First release candidate
+
+ -- Gav Wood <gav@macbookpro>  Fri, 07 Sep 2012 09:12:18 +0100
+
 ripinpeace (1.0.0~rc1) precise; urgency=medium
 
   * Initial Release.
 
- -- Gav Wood <i@gavwood.com>  Fri Sep  7 08:50:19 BST 2012
+ -- Gav Wood <i@gavwood.com>  Fri, 7 Sep 2012 08:50:19 +0100
