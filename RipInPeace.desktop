@@ -4,4 +4,5 @@ Version=1.0
 Type=Application
 Terminal=false
 Name=Rip in Peace
-
+Categories=Audio;AudioVideo;TrayIcon
+Comment=A ripper that doesn't get in your way.
