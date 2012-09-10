@@ -9,5 +9,6 @@ Homepage: https://github.com/gavofyork/RipInPeace
 Package: ripinpeace
 Architecture: any
 Depends: libqt4-gui, libqt4-network, libqt4-script, libcdio-paranoia1, libcdio13, libcdio-cdda1, libcddb2, libflac++6, libdiscid0, libmusicbrainz4-3
+Section: sound
 Description: CD Ripper
 	Rip in Peace is a CD ripper that doesn't get in your way.

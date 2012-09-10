@@ -5,6 +5,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cassert>
+#include <pthread.h>
 #include <FLAC++/all.h>
 #include <QApplication>
 #include <QMessageBox>
@@ -43,9 +44,55 @@ inline string tSS(QString const& _s)
  * TODO: optimize for tag insertion
  */
 
-static void paintLogo(QPainter& _p, QRect _r, int _degrees = 360, QVector<float> const& _split = QVector<float>(), QColor _back = QColor::fromHsv(0, 128, 192), QColor _fore = QColor::fromHsv(0, 0, 232))
+static void paintLogo(QPainter& _p, QRectF _r, int _degrees = 360, QVector<QPair<float, float> > const& _split = QVector<QPair<float, float> >())
 {
-	int gs = _split.size() ? 103 : 105;
+	(void)_degrees;
+	float wx = _r.width();
+	float wy = _r.height();
+
+	_p.setRenderHint(QPainter::Antialiasing, true);
+
+	_p.setPen(Qt::NoPen);
+	_p.setBrush(QColor::fromHsv(0, 0, 224));
+	float pwi = 0.07;
+	float cp = 0.42;
+	QRectF inner = _r.adjusted(wx * pwi, wy * pwi, -wx * pwi, -wy * pwi);
+
+	_p.drawEllipse(_r);
+
+	_p.setCompositionMode(QPainter::CompositionMode_Source);
+	_p.setPen(Qt::NoPen);
+	_p.setBrush(Qt::transparent);
+	_p.drawEllipse(_r.adjusted(wx * cp, wy * cp, -wx * cp, -wy * cp));
+
+	float lastPos = 0.f;
+	for (QPair<float, float> f: _split)
+	{
+		if (f.first == 1.f)
+			_p.setBrush(QColor::fromHsv(0, 0, 224));
+		else
+			_p.setBrush(QColor::fromHsv(0, 0, 112));
+		_p.setPen(QPen(Qt::transparent, 1.f));
+		_p.drawPie(inner, 90 * 16 - lastPos * 360 * 16, f.second * -360 * 16);
+		if (f.first != 0.f && f.first != 1.f)
+		{
+			float pf = (cp - pwi) * (1.f - f.first);
+			auto part = inner.adjusted(wx * pf, wy * pf, -wx * pf, -wy * pf);
+			_p.setBrush(QColor::fromHsv(0, 32, 224));
+			_p.setPen(Qt::NoPen);
+			_p.drawPie(part, 90 * 16 - lastPos * 360 * 16, f.second * -360 * 16);
+		}
+		lastPos += f.second;
+	}
+
+	_p.setPen(Qt::NoPen);
+	_p.setBrush(Qt::transparent);
+	_p.drawEllipse(_r.adjusted(wx * cp, wy * cp, -wx * cp, -wy * cp));
+}
+
+static void paintComplexLogo(QPainter& _p, QRect _r, int _degrees = 360, QVector<QPair<float, float> > const& _split = QVector<QPair<float, float> >(), QColor _back = QColor::fromHsv(0, 128, 192), QColor _fore = QColor::fromHsv(0, 0, 232))
+{
+	int gs = _split.size() ? 100 : 105;
 	float wx = _r.width();
 	float wy = _r.height();
 	QRect gr = _r.adjusted(wx * .3, wy * .3, -wx * .3, -wy * .3);
@@ -65,8 +112,9 @@ static void paintLogo(QPainter& _p, QRect _r, int _degrees = 360, QVector<float>
 
 	_p.setPen(QPen(QColor::fromHsv(0, 0, 0, 32), 0, Qt::DotLine));
 	_p.setBrush(QColor::fromHsv(0, 0, 0, 8));
+	float lastPos = 0.f;
 	for (int i = 1; i < _split.size(); i += 2)
-		_p.drawPie(_r, 90 * 16 - _split[i - 1] * 360 * 16, (_split[i - 1] - _split[i]) * 360 * 16);
+		_p.drawPie(_r, 90 * 16 - (lastPos += _split[i].second + _split[i - 1].second) * 360 * 16, _split[i].second * 360 * 16);
 
 	_p.setCompositionMode(QPainter::CompositionMode_Source);
 	_p.setPen(Qt::NoPen);
@@ -87,17 +135,7 @@ Progress::Progress(RIP* _r): QWidget(0, Qt::WindowStaysOnTopHint|Qt::FramelessWi
 
 void Progress::paintEvent(QPaintEvent*)
 {
-	size_t total = 0;
-	QVector<float> f;
-	f.reserve(m_r->progress().size());
-	for (auto i: m_r->progress())
-		total += i.second;
-	int pos = 0;
-	for (auto i: m_r->progress())
-	{
-		f.push_back(float(pos) / total);
-		pos += i.second;
-	}
+	auto f = m_r->progressVector();
 
 	QPainter p(this);
 	auto r = rect();
@@ -130,7 +168,8 @@ RIP::RIP():
 	m_identifier(nullptr),
 	m_ripped(false),
 	m_identified(false),
-	m_confirmed(false)
+	m_confirmed(false),
+	m_lastPercentDone(0)
 {
 	{
 		QPixmap px(22, 22);
@@ -156,7 +195,7 @@ RIP::RIP():
 	setContextMenu(new QMenu("Rip in Peace"));
 	(m_abortRip = contextMenu()->addAction("Abort Rip", this, SLOT(onAbortRip())))->setEnabled(false);
 	(m_unconfirm = contextMenu()->addAction("Unconfirm", this, SLOT(onUnconfirm())))->setEnabled(false);
-#if DEBUG
+#if !defined(FINAL)
 	(m_testIcon = contextMenu()->addAction("Test Icon"))->setCheckable(true);
 #endif
 	contextMenu()->addSeparator();
@@ -172,19 +211,32 @@ RIP::RIP():
 RIP::~RIP()
 {
 	writeSettings();
-	m_aborting = true;
-	if (m_ripper)
-	{
-		m_ripper->join();
-		delete m_ripper;
-		m_ripper = nullptr;
-	}
+	m_aborting = QTime::currentTime();
 	if (m_identifier)
 	{
 		m_identifier->join();
 		delete m_identifier;
 		m_identifier = nullptr;
 	}
+	if (m_ripper)
+	{
+		pthread_cancel(m_ripper->native_handle());
+		m_ripper->join();
+		delete m_ripper;
+		m_ripper = nullptr;
+	}
+}
+
+QVector<QPair<float, float> > RIP::progressVector() const
+{
+	size_t total = 0;
+	QVector<QPair<float, float> > ret;
+	ret.reserve(m_progress.size());
+	for (auto i: m_progress)
+		total += i.second;
+	for (auto i: m_progress)
+		ret.push_back(QPair<float, float>(float(i.first) / i.second, float(i.second) / total));
+	return ret;
 }
 
 void RIP::createPopup()
@@ -248,7 +300,7 @@ void RIP::onAbout()
 
 void RIP::onAbortRip()
 {
-	m_aborting = true;
+	m_aborting = QTime::currentTime();
 }
 
 void RIP::onQuit()
@@ -429,13 +481,22 @@ void RIP::update()
 	QPixmap px(22, 22);
 	px.fill(Qt::transparent);
 	{
-		QPainter p(&px);
-		paintLogo(p, px.rect().adjusted(1, 1, -1, -1), ad * 360);
+		auto pv = progressVector();
 		QString m = m_confirmed ? "" : m_info.title->text().isEmpty() ? "!" : "?";
-#if DEBUG
+#if !defined(FINAL)
 		if (m_testIcon->isChecked())
-			m = ad < .3f ? "!" : ad < .6f ? "?" : "";
+		{
+			pv.clear();
+			pv += QPair<float, float>(1, .2);
+			pv += QPair<float, float>(1, .1);
+			pv += QPair<float, float>(1, .15);
+			pv += QPair<float, float>(m_lastPercentDone / 100.f, .25);
+			pv += QPair<float, float>(0, .3);
+			m = /*ad < .3f ? "!" : ad < .6f ? "?" :*/ "";
+		}
 #endif
+		QPainter p(&px);
+		paintLogo(p, px.rect().adjusted(1, 1, -1, -1), ad * 360, pv);
 		if (m.size())
 		{
 			p.setPen(QColor(64, 64, 64));
@@ -456,9 +517,15 @@ void RIP::timerEvent(QTimerEvent*)
 	m_progressPie->move(geometry().topLeft());
 	if (m_progressPie->isVisible())
 		m_progressPie->update();
+	if (m_aborting.isValid() && m_aborting.elapsed() > 1000)
+	{
+		pthread_cancel(m_ripper->native_handle());
+		m_ripped = true;
+	}
+
 	if (m_ripped)
 	{
-		if ((m_identified && m_started.elapsed() > 30000 && m_justRipped && !m_popup->isVisible()) || m_aborting || m_confirmed)
+		if ((m_identified && m_started.elapsed() > 30000 && m_justRipped && !m_popup->isVisible()) || m_aborting.isValid() || m_confirmed)
 		{
 			m_ripper->join();
 			m_identifier->join();
@@ -469,7 +536,7 @@ void RIP::timerEvent(QTimerEvent*)
 			m_ripped = false;
 			m_popup->hide();
 			m_progressPie->hide();
-			if (!m_aborting)
+			if (m_aborting.isNull())
 			{
 				harvestInfo();
 				if (m_dis.size() || !m_di.title.empty())
@@ -487,7 +554,7 @@ void RIP::timerEvent(QTimerEvent*)
 			m_info.presets->clear();
 			updatePreset(-1);
 			m_popup->setEnabled(false);
-			m_aborting = false;
+			m_aborting = QTime();
 			m_abortRip->setEnabled(false);
 			m_unconfirm->setEnabled(false);
 			m_progressPie->hide();
@@ -528,7 +595,7 @@ void RIP::timerEvent(QTimerEvent*)
 				m_temp = "RIP-" + m_id.asString();
 				QDir().mkpath(fSS(m_path + "/" + m_temp));
 				m_confirmed = false;
-				m_aborting = false;
+				m_aborting = QTime();
 				m_identified = false;
 				m_started.restart();
 				m_popup->setEnabled(true);
@@ -543,7 +610,7 @@ void RIP::timerEvent(QTimerEvent*)
 			setIcon(m_inactive);
 		}
 	}
-	if (m_ripper && !m_aborting && m_identified && !m_confirmed && m_info.title->text().isEmpty() && !m_dis.size())
+	if (m_ripper && m_aborting.isNull() && m_identified && !m_confirmed && m_info.title->text().isEmpty() && !m_dis.size())
 	{
 		m_identified = false;
 		if (m_identifier)
@@ -564,7 +631,7 @@ void RIP::timerEvent(QTimerEvent*)
 	QString tt;
 	if (m_progress.size())
 		for (unsigned i = 0; i < m_progress.size(); ++i)
-			if (m_progress[i].first != 0 && m_progress[i].first != m_progress[i].second)
+			if (m_progress[i].first != 0 && m_progress[i].first != m_progress[i].second && m_info.tracks->item(i, 0))
 				tt += QString("%1: %2%\n").arg((int)i < m_info.tracks->rowCount() && m_info.tracks->item(i, 0)->text().size() ? m_info.tracks->item(i, 0)->text() : QString("Track %1").arg(i + 1)).arg(int(m_progress[i].first * 100.0 / m_progress[i].second));
 			else{}
 	else
@@ -573,11 +640,11 @@ void RIP::timerEvent(QTimerEvent*)
 	setToolTip(tt);
 
 	int percDone = amountDone() * 100;
-#if DEBUG
+#if !defined(FINAL)
 	if (m_testIcon->isChecked())
 		percDone = m_lastPercentDone == 100 ? 0 : (m_lastPercentDone + 5);
 #endif
-	if (percDone >= 0 && m_lastPercentDone != percDone)
+	if (percDone >= 0)
 	{
 		update();
 		if (percDone >= 90 && m_lastPercentDone < 90 && !m_confirmed && !m_info.title->text().isEmpty())
@@ -593,7 +660,7 @@ void RIP::eject()
 
 void RIP::getDiscInfo()
 {
-	m_dis = m_id.lookup(m_p.tracks(), m_aborting);
+	m_dis = m_id.lookup(m_p.tracks(), [&](){return m_aborting.isValid(); });
 }
 
 void RIP::harvestInfo()
@@ -622,7 +689,7 @@ void RIP::rip()
 {
 	unsigned t = m_p.tracks();
 	vector<std::thread*> encoders;
-	for (unsigned i = 0; i < t && !m_aborting; ++i)
+	for (unsigned i = 0; i < t && m_aborting.isNull(); ++i)
 		if (m_progress[i].second)
 		{
 			string fn = ((ostringstream&)(ostringstream()<<m_path<<"/"<<m_temp<<"/"<<i)).str();
@@ -678,7 +745,7 @@ void RIP::rip()
 				m->lock();
 				incoming->push(o);
 				m->unlock();
-				return !m_aborting;
+				return m_aborting.isNull();
 			};
 			encoders.push_back(new std::thread(encoder));
 			m_p.rip(i, ripper);

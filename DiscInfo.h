@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <functional>
 #include <sstream>
 #include <vector>
 
@@ -46,7 +47,7 @@ public:
 
 	bool isNull() const { return m_discId; }
 	bool identify(std::string const& _device);
-	std::vector<DiscInfo> lookup(int _forceTracks, bool& _aborting) const;
+	std::vector<DiscInfo> lookup(int _forceTracks, std::function<bool()> const& _aborting) const;
 
 private:
 	void** m_discId;

@@ -46,6 +46,7 @@ public:
 	int squeeze() const { return m_squeeze; }
 
 	float amountDone() const;
+	QVector<QPair<float, float> > progressVector() const;
 	std::vector<std::pair<unsigned, unsigned> > const& progress() const { return m_progress; }
 
 public slots:
@@ -115,12 +116,12 @@ private:
 
 	QIcon m_inactive;
 
-	bool m_aborting;
+	QTime m_aborting;
 
 	Progress* m_progressPie;
 	QAction* m_abortRip;
 	QAction* m_unconfirm;
-#if DEBUG
+#if !defined(FINAL)
 	QAction* m_testIcon;
 #endif
 };

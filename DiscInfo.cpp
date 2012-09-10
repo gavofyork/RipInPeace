@@ -65,7 +65,7 @@ static bool isVA(string const& _a)
 	return _a == "Various" || _a == "Various Artists" || _a == "various" || _a == "VA" || _a == "various artists" || _a == "Various artists";
 }
 
-std::vector<DiscInfo> DiscIdentity::lookup(int _forceTracks, bool& _aborting) const
+std::vector<DiscInfo> DiscIdentity::lookup(int _forceTracks, std::function<bool()> const& _aborting) const
 {
 	std::vector<DiscInfo> ret;
 	DiscInfo di;
@@ -79,7 +79,7 @@ std::vector<DiscInfo> DiscIdentity::lookup(int _forceTracks, bool& _aborting) co
 			{
 				mb4::CReleaseList* releaseList = metadata.Disc()->ReleaseList();
 				int nr = releaseList->NumItems();
-				for (int count = 0; count < nr && !_aborting; count++)
+				for (int count = 0; count < nr && !_aborting(); count++)
 					if (mb4::CRelease* release = releaseList->Item(count))
 					{
 						mb4::CQuery::tParamMap params;
@@ -98,10 +98,10 @@ std::vector<DiscInfo> DiscIdentity::lookup(int _forceTracks, bool& _aborting) co
 							di.setTotal = fullRelease->MediumList()->Count();
 							di.year = atoi(fullRelease->Date().substr(0, 4).c_str());
 							auto ml = fullRelease->MediaMatchingDiscID(discid_get_id(m_discId));
-							for (int j = 0; j < ml.NumItems() && !_aborting; ++j)
+							for (int j = 0; j < ml.NumItems() && !_aborting(); ++j)
 							{
 								di.setIndex = ml.Item(j)->Position() - 1;
-								for (int i = 0; i < ml.Item(j)->TrackList()->NumItems() && !_aborting; ++i)
+								for (int i = 0; i < ml.Item(j)->TrackList()->NumItems() && !_aborting(); ++i)
 									if (ml.Item(j)->TrackList()->Item(i)->Position() <= (int)di.tracks.size())
 									{
 										di.tracks[ml.Item(j)->TrackList()->Item(i)->Position() - 1].title = ml.Item(j)->TrackList()->Item(i)->Recording()->Title();
@@ -124,7 +124,7 @@ std::vector<DiscInfo> DiscIdentity::lookup(int _forceTracks, bool& _aborting) co
 	{
 		cddb_conn_s* conn = cddb_new();
 		int matches = cddb_query(conn, m_disc);
-		for (int i = 0; i < matches && !_aborting; ++i)
+		for (int i = 0; i < matches && !_aborting(); ++i)
 		{
 			string category = cddb_disc_get_category_str(m_disc);
 			auto discid = cddb_disc_get_discid(m_disc);
@@ -138,7 +138,7 @@ std::vector<DiscInfo> DiscIdentity::lookup(int _forceTracks, bool& _aborting) co
 				if (isVA(di.artist))
 					di.artist = "";
 				di.year = cddb_disc_get_year(ndisc);
-				for (auto track = cddb_disc_get_track_first(ndisc); !!track && !_aborting; track = cddb_disc_get_track_next(ndisc))
+				for (auto track = cddb_disc_get_track_first(ndisc); !!track && !_aborting(); track = cddb_disc_get_track_next(ndisc))
 					if (cddb_track_get_number(track) <= (int)di.tracks.size())
 					{
 						di.tracks[cddb_track_get_number(track) - 1].title = cddb_track_get_title(track);
