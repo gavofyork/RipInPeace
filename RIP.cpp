@@ -293,6 +293,20 @@ void RIP::plantInfo()
 	}
 }
 
+void RIP::harvestInfo()
+{
+	m_di.title = tSS(m_info.title->text());
+	m_di.artist = tSS(m_info.artist->text());
+	m_di.setIndex = m_info.setIndex->value() - 1;
+	m_di.setTotal = m_info.setTotal->value();
+	m_di.year = m_info.year->value();
+	for (unsigned i = 0; i < m_di.tracks.size(); ++i)
+	{
+		m_di.tracks[i].title = tSS(m_info.tracks->item(i, 0)->text());
+		m_di.tracks[i].artist = tSS(m_info.tracks->item(i, 1)->text());
+	}
+}
+
 void RIP::onAbout()
 {
 	QMessageBox::about(m_progressPie, "About Rip in Peace", "<b>Rip in Peace</b><br/>v1.0.0<p>A Ripper that doesn't get in your way.<p>By <b>Gav Wood</b>, 2012.");
@@ -661,20 +675,6 @@ void RIP::eject()
 void RIP::getDiscInfo()
 {
 	m_dis = m_id.lookup(m_p.tracks(), [&](){return m_aborting.isValid(); });
-}
-
-void RIP::harvestInfo()
-{
-	m_di.title = m_info.title->text().toStdString();
-	m_di.artist = m_info.artist->text().toStdString();
-	m_di.setIndex = m_info.setIndex->value() - 1;
-	m_di.setTotal = m_info.setTotal->value();
-	m_di.year = m_info.year->value();
-	for (unsigned i = 0; i < m_di.tracks.size(); ++i)
-	{
-		m_di.tracks[i].title = tSS(m_info.tracks->item(i, 0)->text());
-		m_di.tracks[i].artist = tSS(m_info.tracks->item(i, 1)->text());
-	}
 }
 
 size_t flacLength(string const& _fn)
